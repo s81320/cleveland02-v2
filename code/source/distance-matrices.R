@@ -20,8 +20,6 @@
 
 # needed for d1
 source("code/source/subforest.R") # loads function tNodes to get terminal nodes of a tree
-# needed for d2
-source("code/source/helper-functions.R") # loads function kldiv to get for difference of probability measures in the fit metric for the pr forest
 
 #### split metric ####
 createDMd0 <- function(forest){
