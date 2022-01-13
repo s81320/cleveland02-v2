@@ -21,8 +21,26 @@ options(xtable.timestamp = "")
 library(dplyr)
 library(ggplot2)
 
-load('data/cluster/06_49.rda')
-#load('03_02.rda')
+load('data/cluster/06_75.rda')
+# load('data/cluster/06_87.rda')
+
+# combine several et from different simulations (each around 50 loops, which is a small number...)
+
+x <- list()
+folder <- 'data/cluster'
+lf <- list.files(folder)
+for(file in lf){
+  load(paste(folder,file,sep='/'))
+  print(paste('loaded et with dim(et)=',dim(et)))
+  print(paste('names(et):',names(et)))
+  if(length(x)==0){
+    x <- et
+  }else{
+      x <- rbind(x,et)
+      }
+  }
+et <- x
+
 info
 moreInfo %>% names
 names(et)
@@ -50,7 +68,8 @@ dim(et.dr)
 et.dr %>% group_by(type) %>% summarize(mLL=mean(logloss)%>% round(3),sdLL=sd(logloss)%>% round(3)) -> LL
 LL
 
-et %>% filter(type %in% c('random',paste('clustering',1:4,sep=''))) -> et.s # selected : subforests built on clusters and randomly selected subforests
+et %>% 
+  filter(type %in% c('random',paste('clustering',1:4,sep=''))) -> et.s # selected : subforests built on clusters and randomly selected subforests
 dim(et.s)
 
 metrices <-  moreInfo$metrices # moreInfo is in loaded data
@@ -95,13 +114,96 @@ f2(y,x)
 ####################################
 #### this is the relevant table ####
 ####################################
+et %>% 
+  group_by(metric, type) %>%
+  summarize(mean(logloss), sd(logloss)) %>% 
+  data.frame() -> et.xt
+dim(et.xt)
+names(et.xt) <- c('metric','clustering strategy','mean logloss' , 'sd logloss')
+
+et.xt %>%
+  xtable -> et.xt
+digits(et.xt) <- 3
+et.xt
+# remove multiple rows of randomly selected , without clustering
+# start with default forest and randomly selected forest
+
+
+#### problem : evrything is too close. 
+#### t-tests: can't even say that default is better than random?
+et %>% 
+  filter(metric=='none' & type=='default') %>%
+  select(logloss) ->Ld
+et %>% 
+  filter(metric=='d0' & type=='random') %>%
+  select(logloss) ->Lr
+
+(Lr-Ld) %>% unlist %>% hist(breaks=20
+                            , xlab='logloss overshoot'
+                            , main='histogram for logloss overshoot \nfor randomly sampled subforest (compare to default forest)')
+# Hypothesis: randomly selected forest has larger logloss than default
+t.test(Lr-Ld, alternative='g') # reject on a 5% level / p value 0.025
+# this is what we wanted , what we expected
+
+et %>% 
+  filter(metric=='d1' & type=='clustering3') %>%
+  select(logloss) ->Ls
+# we would like to see our selection as better than random
+# Hypo: randomly selected forest has larger logloss than carefully selected forest
+t.test(Lr-Ls, alternative='g')
+
+
+doc2 <- data.frame(matrix(NA,16,4))
+ct <- 1
+for(m in metrices){
+  for(t in unique(et$type)){
+    print(paste(m,t))
+    et %>% 
+      filter(metric==m & type==t) %>%
+      select(logloss) -> Ls
+    if(nrow(Ls)>0){
+      print(paste(m,t))
+      doc2[ct,] <- c(m
+                     , t
+                     , t.test(Lr-Ls, alternative='g')$p.value # would like to reject
+                     , t.test(Ls-Ld, alternative='g')$p.value # expect to reject
+                     )
+      ct <- ct+1
+    }
+  }
+}
+
+names(doc2) <- c('metric','type','p.value.r','p.value.d','p.value.d + 0.01')
+doc2[,3] %>% as.numeric %>% round(4) -> doc2[,3]
+doc2[,4] %>% as.numeric %>% round(4) -> doc2[,4]
+#doc2[,5] %>% as.numeric %>% round(4) -> doc2[,5]
+#doc2[,6] %>% as.numeric %>% round(4) -> doc2[,6]
+doc2 %>% xtable -> doc2.xt
+digits(doc2.xt) <- 5
+doc2.xt
+
+#### this is to check if in the selected forests there is a connection of mean dissimilarity and logloss
+#### but we should check it on regular randomly selected forests, not on the results of clustering
+
 et.s %>% 
   group_by(type,metric) %>% 
   summarize('lm p.value'=f2(logloss,mDiss)$pv
             , 'lm intercept'=f2(logloss,mDiss)$coeff[[1]]
             , 'lm slope'=f2(logloss,mDiss)$coeff[[2]] # cannot use a vector valued function in summarise yet
-            , 'cor'=cor(logloss,mDiss))
+            , 'cor'=cor(logloss,mDiss)) -> et.s.t # the table for the evaluation table of selected
+et.s.t %>% xtable -> et.s.xt
 
+align(et.s.xt) <- xalign(et.s.xt)
+digits(et.s.xt) <- 3
+display(et.s.xt) <- xdisplay(et.s.xt)
+et.s.xt
+
+# looking into 16 p-values, probably some are small , some are large ...
+et.s.t$`lm p.value` %>% hist(breaks=10, main='p values for linear models for\ndifferent metrices and cluster strategies')
+runif(16,0,1) %>% hist(breaks=10)
+rnorm(16) %>% 
+  (function(x) (x-min(x))/(max(x)-min(x))) %>% 
+  hist(breaks=10, main='scaled normal random numbers')
 # not working
 #et.s %>% 
 #  group_by(type,metric) %>% 

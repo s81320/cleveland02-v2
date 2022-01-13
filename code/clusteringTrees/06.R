@@ -23,6 +23,7 @@ library(dplyr)
 library(caret)
 library(ranger)
 library(effects)
+library(cluster)
 
 source('code/source/sim-prep.R')
 # reads Cleveland data set , returns enriched data frame df
@@ -32,7 +33,7 @@ source('code/source/sim-prep.R')
 # dfb : data frame bootstrapped
 
 source('code/source/distance-matrices.R') 
-source('code/source/helper-functions.R')
+#source('code/source/helper-functions.R')
 
 t1<-function(tri){
   ti<-treeInfo(rg,tri)
@@ -127,12 +128,12 @@ sizeSF <- 50
 # used to be : nT <- c(rep(21,700),rep(41,700), rep(61,700), rep(81,700), rep(101,700))
 nT <- 500
 sizeDefault <- 500
-nBs <-  50
+nBs <-  51
 # used to be length(sizeSF)
 
 evalT <-matrix(NA,nrow=17*nBs,ncol=15) # table of evaluations
 
-seed <- 2
+seed <- 7
 set.seed(seed)
 cr<-createResample(df$CAD
                    , times = nBs
@@ -142,8 +143,8 @@ set.seed(seed+1)
 
 ct <- 1
 for(i in 1:nBs){
-  print(paste(i/nBs , Sys.time()))
-  #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
+  #print(paste(i/nBs , Sys.time()))
+  if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
   # data frame, bootstrapped
   dfb<-df[cr[[i]],] 
   dim(dfb)
@@ -357,10 +358,10 @@ for(A in names(et)[-c(4,5)]){
   et[,A] <- as.numeric(et[,A]) %>% round(5)
 }
 
-View(et)
+#View(et)
 
 info<-paste('new preprocessing, tiny fubforests, 3 cluster strategies, select positive sil width, document mean sil width for the whole forest and the selected subforest. seed: ', seed, ' , clustering with all dissimilarities, separately. Cluster Quality. Error analysis. logloss, diff to default', sep='')
-moreInfo <-  list('nBs' = nBs, sizes=list('sizeSF'=sizeSF, 'nT'=nT , 'sizeDefault'=sizeDefault ), 'metrices'=metrices ,  'pam.obj'=pam.obj , 'rg' = rg )
+moreInfo <-  list('nBs' = nBs, sizes=list('sizeSF'=sizeSF, 'nT'=nT , 'sizeDefault'=sizeDefault ), 'metrices'=metrices ,  'pam.obj'=pam.obj , 'rg' = rg , 'seed'=seed)
 save(et, info, moreInfo , file=paste('data/cluster/06*',round(100*runif(1),0),'.rda', sep=''))
 
 #### what's in the data we created ?? ####
@@ -380,14 +381,30 @@ et %>% filter(type %in% c('random','default')) -> et.dr # default and random
 # including the random forests and their mDiss in all 4 dissimilarity metrices
 dim(et.dr)
 et %>% filter(type %in% c('random',paste('clustering',1:4,sep=''))) -> et.s # selected : clustered and random
+
 et %>% filter(type %in% paste('clustering',1:4,sep='')) -> et.c # clustered
 
 et.s %>%
   group_by(metric , type) %>% 
-  ggplot(aes(x=metric , y=logloss.diff.r, fill=type))+
+  ggplot(aes(x=metric , y=logloss.diff.d, fill=type))+
   geom_boxplot()+
-  labs(title='It\'s not easy to be better than random')
-# et.s[et.s$metric=='d0',] %>% group_by(type) %>% ggplot(aes(x=type , y=logloss.diff,))+geom_boxplot()
+  labs(title='It\'s not easy to be better than random\n and quite impossible to be better than default')
+
+# single plot for each metric
+for(metric in metrices){
+p <- et.s[et.s$metric==metric,] %>% 
+  group_by(type) %>% 
+  ggplot(aes(x=type , y=logloss.diff.d))+
+  geom_boxplot()+
+  ggtitle(metric) 
+plot(p)
+}
+
+et.s[et.s$metric=='d0',] %>% 
+  group_by(type) %>% 
+  ggplot(aes(x=type , y=logloss.diff.d))+
+  geom_boxplot()+
+  ggtitle(metric)
 
 et %>%
   group_by(metric , type) %>% 
@@ -401,16 +418,17 @@ et.s %>%
   geom_boxplot()+
   labs(title='It\'s not easy to be better than random')
 
-# works for d1 ?? only?
+# works well for d1 ?? only?
+for(m in metrices){
 et.s %>%
-  filter(metric =='d1') %>%
+  filter(metric == m) %>%
   select(c("size","mDiss","mSW.d",'mSW.s','logloss')) %>%
   lm(logloss~mDiss, data=.) -> lm1
 summary(lm1)
 lm1 %>% 
   allEffects %>% 
-  plot(multiline=T)
-
+  plot(multiline=T, main=paste(m , 'mean dissimilarity effect'))
+}
 # not working
 et[et$type=='default','logloss'] %>% mean
 
@@ -421,7 +439,4 @@ et %>%
   select(logloss)%>%
   apply(2,mean)
 
-et %>% 
-  group_by(metric, size, type) %>%
-  summarize(mean(logloss))%>% data.frame()
 
