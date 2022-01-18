@@ -21,7 +21,7 @@ options(xtable.timestamp = "")
 library(dplyr)
 library(ggplot2)
 
-load('data/cluster/06_75.rda')
+#load('data/cluster/06_75.rda')
 # load('data/cluster/06_87.rda')
 
 # combine several et from different simulations (each around 50 loops, which is a small number...)
@@ -32,7 +32,7 @@ lf <- list.files(folder)
 for(file in lf){
   load(paste(folder,file,sep='/'))
   print(paste('loaded et with dim(et)=',dim(et)))
-  print(paste('names(et):',names(et)))
+  #print(paste('names(et):',names(et)))
   if(length(x)==0){
     x <- et
   }else{
@@ -96,13 +96,16 @@ f2 <-  function(a,b){
     summary %>%
     .$fstatistic %>%
     calcPValue() -> pv
-  return(list('pv'=pv , 'coeff'=lm1$coefficients))
+  return(list('pv'=pv 
+              , 'coeff'=lm1$coefficients 
+              , 'rse'=lm1$residuals %>% sd %>% round(4)))
 }
 
 # check
 x <- et.s[(et.s$metric=='d0')&(et.s$type=='clustering1'),'mDiss']
 y <- et.s[(et.s$metric=='d0')&(et.s$type=='clustering1'),'logloss']
 
+print('combare coefficients in summary and f2 , should be the same')
 lm(y~x , data=data.frame(cbind(x,y))) %>% summary -> s1
 # is the same as
 # lm(logloss~mDiss, data=et.s[(et.s$metric=='d0')&(et.s$type=='clustering1'),]) %>% summary -> s1
@@ -129,7 +132,7 @@ et.xt
 # start with default forest and randomly selected forest
 
 
-#### problem : evrything is too close. 
+#### problem : everything is too close. 
 #### t-tests: can't even say that default is better than random?
 et %>% 
   filter(metric=='none' & type=='default') %>%
@@ -173,7 +176,7 @@ for(m in metrices){
   }
 }
 
-names(doc2) <- c('metric','type','p.value.r','p.value.d','p.value.d + 0.01')
+names(doc2) <- c('metric','type','p.value.r','p.value.d')
 doc2[,3] %>% as.numeric %>% round(4) -> doc2[,3]
 doc2[,4] %>% as.numeric %>% round(4) -> doc2[,4]
 #doc2[,5] %>% as.numeric %>% round(4) -> doc2[,5]
@@ -187,28 +190,26 @@ doc2.xt
 
 et.s %>% 
   group_by(type,metric) %>% 
-  summarize('lm p.value'=f2(logloss,mDiss)$pv
-            , 'lm intercept'=f2(logloss,mDiss)$coeff[[1]]
-            , 'lm slope'=f2(logloss,mDiss)$coeff[[2]] # cannot use a vector valued function in summarise yet
-            , 'cor'=cor(logloss,mDiss)) -> et.s.t # the table for the evaluation table of selected
-et.s.t %>% xtable -> et.s.xt
+  summarize('lm p.value'=f2(logloss,mDiss)$pv ,
+             'lm intercept'=f2(logloss,mDiss)$coeff[[1]] , 
+             'lm slope'=f2(logloss,mDiss)$coeff[[2]] ,  # cannot use a vector valued function in summarise yet
+             'rse'=f2(logloss,mDiss)$rse) -> et.s.t # the table for the evaluation table of selected
+et.s.t %>% xtable -> xt
 
-align(et.s.xt) <- xalign(et.s.xt)
-digits(et.s.xt) <- 3
-display(et.s.xt) <- xdisplay(et.s.xt)
-et.s.xt
+align(xt) <- xalign(xt)
+digits(xt) <- 3
+display(xt) <- xdisplay(xt)
+xt
 
-# looking into 16 p-values, probably some are small , some are large ...
-et.s.t$`lm p.value` %>% hist(breaks=10, main='p values for linear models for\ndifferent metrices and cluster strategies')
-runif(16,0,1) %>% hist(breaks=10)
-rnorm(16) %>% 
-  (function(x) (x-min(x))/(max(x)-min(x))) %>% 
-  hist(breaks=10, main='scaled normal random numbers')
-# not working
-#et.s %>% 
-#  group_by(type,metric) %>% 
-#  ggplot()+
-#  geom_point(aes(x=mDiss, y=logloss))
+et.s.t %>% 
+  select(metric, type, 'lm p.value') %>%
+  tidyr::pivot_wider(names_from=c(type) , values_from = 'lm p.value') %>%
+  xtable -> xt
+
+align(xt) <- xalign(xt)
+digits(xt) <- 3
+display(xt) <- xdisplay(xt)
+xt
 
 
 ######################################
@@ -229,6 +230,93 @@ for(m in metrices){
         # , col=round(et.s$mSplits,0)
          )
     abline(lm(y~x)$coefficients)
+    
+    lm1 <- lm(y ~ x)
+    plot(x[order(x)],lm1$residuals[order(x)] , main='residuals in simple linear model')
+    plot(lm1$fitted.values,lm1$residuals , main='residuals over fitted values simple linear model')
     }
 }
 
+######################################################
+#### randomly selected forests under all 4 dissim ####
+######################################################
+
+# not working
+et %>%
+  filter(type=='random') %>%
+  select(c(bootstrap,metric,mDiss,logloss)) %>%
+  tidyr::pivot_wider(names_from=metric, values_from=mDiss) -> x
+
+et %>% 
+  filter(metric=='d0' & type=='random') %>%
+  select(logloss, mDiss) -> x1
+names(x1) <- c('logloss','d0')
+
+for(m in c('d1','d2','sb')){
+  et %>% 
+    filter(metric==m & type=='random') %>%
+    select(logloss, mDiss) -> x2
+  names(x2) <- c('logloss',m)
+  x1 <- cbind(x1,x2)
+}
+
+# check that all loglosses are the same in each row
+x1[,c(1,3,5,7)] %>% apply(1,function(y){all(y==y[1])}) %>% table
+# table should have all entries True
+
+# the relevant data we will work with
+x <-  x1[,c(2,4,6,8)] %>% 
+  scale %>% 
+  cbind(x1$logloss) %>%
+  as.data.frame
+names(x)[5] <- 'logloss'
+
+myLM(formula=logloss~ d0*d1*d2*sb , x) # all interactions
+myLM(formula=logloss~ d0+sb+d0:d2+d0:d1:sb , x) # interactions that were significant in first model
+myLM(formula=logloss~ d0+sb+d0:d1:sb , x) # interactions that were significant in previous model
+myLM(formula=logloss~ d0:d1:sb + sb , x)
+myLM(formula=logloss~  d0*sb , x)
+myLM(formula=logloss~ d0:sb +sb , x)
+
+myLM(logloss~ d0:d1 , data=x)
+
+myLM(logloss~ d2*d0 , data=x) # ok model p-value but no significant coefficients
+
+myLM(logloss~ d0 , data=x)
+myLM(logloss~ sb , data=x)
+myLM(logloss~ d0+sb ,x)
+myLM(logloss~ d2:d0, x)
+
+
+myLM <- function(formula , data){
+  par(mar=c(5,4,3,1)+0.1)
+  lm1 <- lm(formula , data) 
+  lm1 %>% 
+    summary %>% 
+#    xtable %>% 
+    print
+  plot(lm1$residuals ~ lm1$fitted.values 
+       , main=paste('residuals in linear model, p-value: '
+                    , lm1 %>% summary %>% .$fstatistic %>% calcPValue %>% round(4)
+                    , '\n', as.character(formula)[[2]] , as.character(formula)[[1]], as.character(formula)[[3]] , sep='')
+       , sub=paste('residuals absolute mean: ', lm1$residuals %>% abs %>% mean %>% round(4)
+                     , ' and sd: ', lm1$residuals %>% sd %>% round(4))
+         )
+  lm1$residuals %>% hist(main='residuals')
+  
+}
+
+#############################################################
+#### mean dissimilarities under clustering ##################
+#############################################################
+
+et %>%
+  group_by(metric, type) %>%
+  summarise(md=mean(mDiss)) %>% 
+  filter(type!='default') %>%
+  tidyr::pivot_wider(names_from=type, values_from = md) %>%
+  xtable
+
+
+
+  
