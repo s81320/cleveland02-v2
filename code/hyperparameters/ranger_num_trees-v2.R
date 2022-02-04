@@ -10,7 +10,8 @@ load('data/data_SupMat4.rda')
 
 Cleve$CAD_fac <- NULL
 
-nt <- seq(5, 5000, 5)
+# nt <- seq(5, 5000, 5)
+nt <- seq(50, 5000, 100)
 length(nt)
 oob_error <- matrix(0,5, length(nt))
 
@@ -56,7 +57,10 @@ for(i in 1:length(nt)){
   vote <- rowMeans(oob_idx[sometimes_oob_idx,1:nt[i]]*preds1, na.rm = TRUE)
   vote <- ifelse(vote>1.5,'No','Yes')
   vote <- factor(vote, levels=c('No','Yes'))
-  oob_error[j,i] <- (vote==Cleve[sometimes_oob_idx,]$CAD) %>% which %>% length/length(sometimes_oob_idx)
+  
+  (vote==Cleve[sometimes_oob_idx,]$CAD) %>% 
+    which %>% 
+    length/length(sometimes_oob_idx) -> oob_error[j,i]
 }
 }
 
@@ -64,9 +68,9 @@ for(i in 1:length(nt)){
 #### build only one forest of maximal size #####################################
 #### probability estimation ####################################################
 
-oob_error <- matrix(0,5, length(nt))
+oob_error <- matrix(0,20, length(nt))
 
-for(j in 1:5){
+for(j in 1:20){
   set.seed(2*j)
 rg <- ranger(CAD ~ .
              , data=Cleve
@@ -123,3 +127,7 @@ legend('topright',legend=1:5, pch='-', col=1:5, cex=0.8)
 
 par(mar=c(5,4,2,2) + 0.1)
 
+
+dim(oob_error)
+boxplot(oob_error)
+# table

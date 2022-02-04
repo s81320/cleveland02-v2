@@ -27,7 +27,7 @@ library(ggplot2)
 # combine several et from different simulations (each around 50 loops, which is a small number...)
 
 x <- list()
-folder <- 'data/cluster'
+folder <- 'data/cluster06'
 lf <- list.files(folder)
 for(file in lf){
   load(paste(folder,file,sep='/'))

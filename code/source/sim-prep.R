@@ -24,6 +24,14 @@ model <- glm(CAD ~.,family=binomial(link='logit'), data=df)
 df$prob <- model$fitted.values
 df$prob <- glm(CAD ~.,family=binomial(link='logit'), data=df[,c(1:11)])$fitted.values
 
+
+new_bootstrap <- function(df, resample){
+  dfb<-df[resample,] # we need the prob to replace CAD 
+  dfb$CAD <- factor(rbinom(303,1,dfb$prob))
+  levels(dfb$CAD)<-list("No"="0","Yes"="1")
+  return(dfb)
+}
+
 # this is really bad :
 #df$prob <- ranger(CAD~. ,
 #                  probability=T ,
