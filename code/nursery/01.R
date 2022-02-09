@@ -22,11 +22,11 @@ Cleve_enriched <- create_prob(Cleve)
 source('code/source/distance-matrices.R')
 
 # should be 1000
-nBs <- 2
+nBs <- 50
 
 doc <-  list()
 
-seed <- 1
+seed <- 12
 set.seed(seed)
 cr<-createResample(Cleve_enriched$CAD
                    , times = nBs
@@ -62,13 +62,13 @@ for(i in 1:nBs){
 }
 View(doc)    
 
-info <-  list('version'='1, d2 works on mean absolute error as distance in predictions'
+info <-  list('version'='2, training forests on bootstraps of Cleveland data set.'
                   , 'seed'=seed
                   , 'nBs'=nBs 
                   , 'metrices'=metrices 
                   , 'date'=Sys.time() 
                   , 'created with script file'='code/nursery/01.R')
-save(info, doc, file='data/nursery/nursery01*.rda')
+save(info, doc, file='data/nursery/nursery01_*_50x500*.rda')
 
 # how to load data
 
