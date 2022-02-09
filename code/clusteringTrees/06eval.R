@@ -55,9 +55,6 @@ dim(et)
 # for metric d2 the best number of clusters was 2 (and maybe no clustering would be best -> unimodal?!)
 et[,c('size','metric')] %>% table %>% addmargins
 
-# number of bootstrap samples
-moreInfo$nBs
-
 # number of (sub-) forest per type - metric- combination
 et[,c('type','metric')] %>% table
 
@@ -72,7 +69,7 @@ et %>%
   filter(type %in% c('random',paste('clustering',1:4,sep=''))) -> et.s # selected : subforests built on clusters and randomly selected subforests
 dim(et.s)
 
-metrices <-  moreInfo$metrices # moreInfo is in loaded data
+metrices <-  unique(et$metric)
 calcPValue <- function(a) pf(a[[1]],a[[2]],a[[3]],lower.tail=FALSE)
 
 # check it is working, calcPValue should give the same p-value as the summary
