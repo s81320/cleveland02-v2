@@ -12,12 +12,12 @@ predForest <-  function(forest1, data) {
   
   if('treetype' %in% names(forest1)){
     if(forest1$treetype=='Probability estimation'){
-      print('doing great')
+      #print('doing great')
     }else{
-      print('Problem alert')
+      #print('Problem alert')
     }
   }else{
-    print('no treetype for forest1')
+    #print('no treetype for forest1')
   }
   
   predict(forest1 
@@ -52,6 +52,7 @@ calcLogloss2 <-  function(pp , df){
     # we're not good
   }
   
+  # pp should be predictions on the df data
   if(nrow(df)==length(pp)){
     # we're fine
   }else{
