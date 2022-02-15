@@ -34,6 +34,14 @@ load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 data.test <-  VA
 #data.test <- Hung
 
+# try to replace : 
+## data.test <-  VA
+# by :
+#data.test.name <-  'VA'
+#data.test <-  get(data.test.nayme)
+#attr(data.test,'data.test.name') <- data.test.name
+## end of replace
+
 # load('data/nursery/nursery01_03_50x500.rda') # loads doc and info
 # contains forests and their dissimilarity matrices
 # info

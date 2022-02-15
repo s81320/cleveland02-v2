@@ -3,13 +3,14 @@
 
 # 1) simulation : bootstrapped datasets
 # 2) grow a ranger forest on it
-# 3) calculate all the dissimilarity matrices
-# 4) save bootstrap, forest, dissimilarity matrices
+# 3) calculate all dissimilarity matrices
+# 4) save resample, bootstrap training data, forest, dissimilarity matrices
 
 rm(list=ls())
 
 library(caret)
 library(ranger)
+library(dplyr)
 
 metrices <- c('d0','d1','d2','sb')
 nT <- 500 # to set num.trees=nT in ranger
@@ -26,7 +27,7 @@ nBs <- 50
 
 doc <-  list()
 
-seed <- 12
+seed <- 20
 set.seed(seed)
 cr<-createResample(Cleve_enriched$CAD
                    , times = nBs
@@ -34,10 +35,10 @@ cr<-createResample(Cleve_enriched$CAD
 
 ct <- 1
 for(i in 1:nBs){
-  print(paste(i/nBs , Sys.time()))
-  #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
+  #print(paste(i/nBs , Sys.time()))
+  if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
   # data frame, bootstrapped
-  data.train <-  new_bootstrap(Cleve_enriched , cr[[i]])[,-12] # no probabilities
+  data.train <- new_bootstrap(Cleve_enriched , cr[[i]])[,-12] # no probabilities
   
   # grow small forest (size nT)
   rg <- ranger(CAD~.
@@ -53,12 +54,15 @@ for(i in 1:nBs){
   DM <- list()
 
   for(metric in metrices){
-    print(paste('    ' , metric , Sys.time()))
+    # print(paste('    ' , metric , Sys.time()))
     
     DM[[metric]] <- createDM(forest=rg$forest , type=metric, dft=data.train)
   }
   
-  doc[[i]] <-  list('resample'=cr[[i]], 'bootstapped training data'=data.train ,'rg'=rg , 'DM'=DM)
+  doc[[i]] <-  list('resample'=cr[[i]] 
+                    , 'bootstapped training data'=data.train 
+                    , 'rg'=rg 
+                    , 'DM'=DM)
 }
 View(doc)    
 
@@ -68,7 +72,7 @@ info <-  list('version'='2, training forests on bootstraps of Cleveland data set
                   , 'metrices'=metrices 
                   , 'date'=Sys.time() 
                   , 'created with script file'='code/nursery/01.R')
-save(info, doc, file='data/nursery/nursery01_*_50x500*.rda')
+save(info, doc, file='data/nursery/nursery01_16_50x500*.rda')
 
 # how to load data
 

@@ -74,9 +74,10 @@ ct <-  1 # counter for the above collector
 #data.test <- Hung
 #attr(data.test,'data.test.name') <- 'Hung'
 
-data.test <-  VA
-attr(data.test,'data.test.name') <- 'VA'
-
+data.test.name <-  'VA'
+# data.test <-  VA
+data.test <-  get(data.test.nayme)
+attr(data.test,'data.test.name') <- data.test.name
 
 nt <- c(5,10,50,500)
 
