@@ -12,12 +12,12 @@ predForest <-  function(forest1, data) {
   
   if('treetype' %in% names(forest1)){
     if(forest1$treetype=='Probability estimation'){
-      #print('doing great')
+      print('doing great')
     }else{
-      #print('Problem alert')
+      print('Problem alert')
     }
   }else{
-    #print('no treetype for forest1')
+    print('no treetype for forest1')
   }
   
   predict(forest1 
@@ -34,6 +34,29 @@ calcLogloss <-  function(forest, df){
   }
   
   pp <- predForest(forest,df)
+  
+  correctedpp <- ifelse(df$CAD=='Yes',pp,1-pp) # problematic when this returns 0
+  
+  correctedpp <- winsorize_probs(correctedpp) 
+  
+  return( -mean(log(correctedpp)))
+}
+
+calcLogloss2 <-  function(pp , df){
+  #' calc logloss when you already have the predicted probabilities
+  #' no need to calculate them again
+  
+  if('CAD' %in% names(df)){
+    # we're good
+  }else{
+    # we're not good
+  }
+  
+  if(nrow(df)==length(pp)){
+    # we're fine
+  }else{
+    # error
+  }
   
   correctedpp <- ifelse(df$CAD=='Yes',pp,1-pp) # problematic when this returns 0
   
