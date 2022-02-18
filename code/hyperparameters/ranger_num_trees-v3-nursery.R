@@ -1,4 +1,4 @@
-# ranger_num_trees_v3.R
+# ranger_num_trees_v3-nursery.R
 # look at different sizes in a ranger random forest 
 # and compare their performance in logloss , especially in mean and sd (median and IQR)
 
