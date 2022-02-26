@@ -14,8 +14,6 @@
 # 2) build 2 clusters 
 # 3) build 3 clusters
 
-# NEW 
-
 # measure of success : logloss
 
 rm(list=ls())
@@ -31,16 +29,11 @@ source('code/source/subforest.R') # subforest
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
-data.test <-  VA
-#data.test <- Hung
+# set test data by name : VA, Swiss or Hung
+data.test.name <-  'Hung'
+data.test <-  get(data.test.name)
+attr(data.test,'data.test.name') <- data.test.name
 
-# try to replace : 
-## data.test <-  VA
-# by :
-#data.test.name <-  'VA'
-#data.test <-  get(data.test.nayme)
-#attr(data.test,'data.test.name') <- data.test.name
-## end of replace
 
 # load('data/nursery/nursery01_03_50x500.rda') # loads doc and info
 # contains forests and their dissimilarity matrices
@@ -305,7 +298,7 @@ return(et)
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)
+files <- list.files(folder)[16:18]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -353,6 +346,10 @@ et %>% filter(type %in% paste('clustering',1:4,sep='')) -> et.c # clustered
 
 et.s %>%
   group_by(metric , type) %>% 
+  summarise(mean(logloss), sd(logloss), mean(mSW.s), mean(mSW.d))
+
+et.s %>%
+  group_by(metric , type) %>% 
   ggplot(aes(x=metric , y=logloss.diff.d, fill=type))+
   geom_boxplot()+
   labs(title='It\'s not easy to be better than random\n and quite impossible to be better than default')
@@ -367,13 +364,6 @@ p <- et.s[et.s$metric==metric,] %>%
   ggtitle(metric) 
 plot(p)
 }
-
-et %>%
-  group_by(metric , type) %>% 
-  ggplot(aes(x=metric , y=unacceptable, fill=type))+
-  geom_boxplot()+
-  labs(title='all strategies have a lower median than random')
-
 
 et.s %>%
   group_by(metric , type) %>% 
