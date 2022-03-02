@@ -29,23 +29,66 @@ calc_chipForest <- function(dm , forest, oLL, parameter){
   #'
   #' returns its logloss on data.test (from higher environment)
   #' returns the rank of the last inspected tree (or the index +1 , like 6 when collecting the first 5 trees)
-  #' returns the number of trees in the chipman forest (enforced to be parameters$sizeSF or smaller)
+  #' returns the number of trees in the Chipman forest (enforced to be parameters$sizeSF or smaller)
 
-  chipForest <- oLL[1] # start forest with the best tree
+  chipForest <- oLL[1] # start chipForest with the best tree
   cutoff <- quantile(dm,parameter$cutoff) 
   #print(cutoff)
   
+  # go through trees (ordered by performance) until sizeSF trees are collected / selected
   for(j in 2:length(oLL)){
     if(length(chipForest)==parameter$sizeSF){
       break
     }else{
       trindx <- oLL[j]
-      if(min(dm[chipForest,trindx])>cutoff){
+      # if new tree far from (current) chipForest , add it to chipForest
+      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
+      if(min(dm[chipForest,trindx]) >= parameter$cutoff){ 
         chipForest <- c(chipForest, trindx)
       }
     }
   } # for exits with j the first index after all trees have been collected
-  return(list(calcLogloss( subforest(forest, chipForest ), data.test),j, length(chipForest)))
+  return(list(calcLogloss( subforest(forest, chipForest ), data.test)
+              ,j
+              , length(chipForest)))
+}
+
+calc_meinForest <- function(dm , forest, oLL, parameter){
+  #' calculates the Meiner forest
+  #' 
+  #' @param parameter is a list with items cutoff and sizeSF 
+  #'
+  #' returns its logloss on data.test (from higher environment)
+  #' returns the rank of the last inspected tree (or the index +1 , like 6 when collecting the first 5 trees)
+  #' returns the number of trees in the Meiner forest (enforced to be parameters$sizeSF or smaller)
+  
+  meinForest <- oLL[1] # start chipForest with the best tree
+  cutoff <- quantile(dm,parameter$cutoff) 
+  #print(cutoff)
+  
+  # go through trees (ordered by performance) until sizeSF trees are collected / selected
+  for(j in 2:length(oLL)){
+    if(length(meinForest)==parameter$sizeSF){
+      break
+    }else{
+      trindx <- oLL[j]
+      # if new tree far from (current) meinForest , add the best tree (lowest logloss) to the meinForest that represents trindx.
+      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
+      if(min(dm[meinForest,trindx]) >= parameter$cutoff){ 
+        base::setdiff(oLL[1:j], meinForest) %>%
+          dm[.,trindx] %>%
+          (function(x) x<parameter$cutoff) %>%
+          which.min %>%
+          base::setdiff(oLL[1:j], meinForest)[.] %>%
+          c(meinForest) -> meinForest
+          # alternative to calc_chipForest :
+         # chipForest <- c(chipForest, trindx)
+      }
+    }
+  } # for exits with j the first index after all trees have been collected
+  return(list(calcLogloss( subforest(forest, meinForest ), data.test)
+              , j
+              , length(meinForest)))
 }
 
 calc_LL_for_selection <- function(doc, parameter){
@@ -97,7 +140,8 @@ calc_LL_for_selection <- function(doc, parameter){
     res <- list()
     for(metric in metrices){
       DM[[metric]] %>%
-        calc_chipForest(forest, oLL, parameter) -> res[[metric]]
+        #calc_chipForest(forest, oLL, parameter) -> res[[metric]]
+        calc_meinForest(forest, oLL, parameter) -> res[[metric]]
     }
     evalT[i,] <- unlist(res)
   }
@@ -111,11 +155,14 @@ calc_LL_for_selection <- function(doc, parameter){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:5]
+files <- list.files(folder)[1:2]
 # dir(folder)
 
-cutoff <- seq(0.1, 0.9,by=0.1)
-sizeSF <- rep(500,length(cutoff))
+cutoff <- seq(0, 0.5,by=0.05)
+# setting sizeSF to the number of trees (500)  generates a Chipman forest 
+# that only stops when all trees are represented (at the specified level)
+# cutoff 0 means only trees with dissim 0 represent each other. Happens only for d0.
+sizeSF <- rep(5,length(cutoff))
 
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 # parameter$cutoff
@@ -144,7 +191,8 @@ et03 <- data.frame(bind_rows(collector.p))
 #save(et03 , file='data/chipman/hyperparameter_cutoff_5trees*.rda')
 #load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
-et03 %>% apply(2,function(x) c(mean(x),sd(x)))
+# makes no sense. et03 is already aggregated, averaged over...
+#et03 %>% apply(2,function(x) c(mean(x),sd(x))) %>% t
 
 et03.s <-  et03 %>% select(tidyr::starts_with('LL.'))
 ylim <- range(et03.s)
@@ -154,7 +202,7 @@ ylim <- range(et03.s)
 plot(cutoff
      , et03.s[,1]
      , type='b'
-     , main='loglosses for cutoff parameters, 1000 simulations\n(filled dots for minimum values)'
+     , main=paste('loglosses for cutoff parameters, ', 50*length(files) ,' simulations\n(filled dots for minimum values)')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='mean logloss')
@@ -175,7 +223,7 @@ ylim <- range(et03.s)
 plot(cutoff
      , et03.s[,1]
      , type='b'
-     , main=paste('mean number of trees in selection process\n(1000 simulations, ', sizeSF[[1]], ' trees)')
+     , main=paste('mean number of trees in selection process\n(',50*length(files),' simulations, ', sizeSF[[1]], ' trees)', sep='')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='trees oredered by OOB performance')
@@ -202,7 +250,7 @@ ylim <- range(et03.s)
 plot(cutoff
      , et03.s[,1]
      , type='b'
-     , main='mean sizes of Chipman forests, 1000 simulations'
+     , main=paste('mean sizes of Chipman forests,', 50*length(files) , ' simulations')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='size')
@@ -216,5 +264,5 @@ for(k in 2:4){
   wm <- which.min(et03.s[,k])
   points(cutoff[wm], et03.s[wm,k],col=k, pch=19 )
 }
-legend('toprightright', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+legend('topright', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 

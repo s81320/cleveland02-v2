@@ -1,3 +1,15 @@
+# code / chipmanSelection  / 01.R
+# Chipman 2 : adding diverse trees until all trees are represented
+# setting all parameters by hand , no looping over parameters
+# parameters are : metric , cutoff parameter , final size (early stopping of algorithm)
+
+# beware when comparing: when sizeSF > 500
+# the Chipman algorithm will stop early and will NOT represent all trees. 
+
+# Generally sizes of the Chipman forest will vary and stay below sizeSF.
+# random and high performing forest will be of size sizeSF
+# so we compare forests of different sizes.
+# in calc_LL_selection we can change this and calculate forests of the same size as the chipman forest for random and high performers
 
 rm(list=ls())
 
@@ -17,9 +29,9 @@ data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-sizeSF <- 5
-metric <- 'd0'
-cutoff.parameter <-  0.7
+sizeSF <- 50
+metric <- 'd1'
+cutoff.parameter <-  0.5
 
 calc_LL_for_selection <- function(doc, sizeSF){
  
@@ -85,18 +97,22 @@ calc_LL_for_selection <- function(doc, sizeSF){
         #print(paste(j,trindx))
         #print(paste(length(chipForest)))
         #print(paste('distances to current candidate:',dm[chipForest,trindx]))
-        if(min(dm[chipForest,trindx])>cutoff){
+        if(min(dm[chipForest,trindx])>=cutoff){
           #print(paste('logloss single tree now added: ' , LL[trindx]))
           chipForest <- c(chipForest, trindx)
         }
         }
     } # exits with j the first index after all trees have been collected
-    
+  sizeChF <-  length(chipForest)
   evalT[i,] <- c(i
-                 , length(chipForest)
+                 , sizeChF
                  , j
-                , calcLogloss(subforest(forest,sample(1:rg$num.trees, sizeSF)), data.test)
-                , calcLogloss( subforest(forest, oLL[1:sizeSF] ), data.test)
+                 # random small forest of same size as chipForest:
+                 , calcLogloss(subforest(forest, 1:sizeChF), data.test)
+                #, calcLogloss(subforest(forest, 1:sizeSF), data.test)
+                # high performer small forest of same size as chipForest:
+                , calcLogloss( subforest(forest, oLL[1:sizeChF] ), data.test)
+                #, calcLogloss( subforest(forest, oLL[1:sizeSF] ), data.test)
                 , calcLogloss( subforest(forest, chipForest ), data.test)
                 , calcLogloss(forest, data.test)
                 )
@@ -124,6 +140,7 @@ et01 <- bind_rows(collector)
 
 mean(et01$j)
 mean(et01$LL.test.chip)
+mean(et01$sizeChipForest)
 
 names(et01)[4:7] <- c('random','unimod hp','chip','default')
 boxplot(et01[,4:7]
@@ -137,12 +154,38 @@ et01 %>%
   select(random, 'unimod hp', chip,  default) %>%
   summarize_all(function(x) c(mean(x), sd(x))) %>%
   t #%>% 
-  xtable -> et.xt
+  #xtable -> et.xt
   
-et.xt
-digits(et.xt) <- 4
-et.xt
+#et.xt
+#digits(et.xt) <- 4
+#et.xt
 
 et01 %>% 
   select(random, 'unimod hp', chip, default) %>%
-  summarize_all(function(x) c(median(x), IQR(x)))
+  summarize_all(function(x) c(median(x), IQR(x))) %>% t
+
+(et01$chip - et01$default) %>% 
+  hist(main='chipman logloss overshoot' 
+       , xlab='logloss difference to default forest'
+       , breaks=20)
+
+(et01$chip - et01$'unimod hp') %>% 
+  hist(
+    #main=paste('chipman logloss overshoot\n(mean size Chipman', mean(et01$sizeChipForest),'at cutoff parameter', cutoff.parameter,
+     #          'size high performers', sizeSF,')') 
+    main=paste('chipman logloss overshoot\n(mean size Chipman', mean(et01$sizeChipForest),'at cutoff parameter', cutoff.parameter,
+               'same size for high performers and random)') 
+       , xlab='logloss difference to forest of high performers'
+, breaks=20)
+
+plot(et01$sizeChipForest , et01$chip)
+et01 %>% 
+  ggplot(aes(x=sizeChipForest, y=chip)) +
+  geom_boxplot(aes(group=sizeChipForest))
+
+# compare et01 for different parameters:
+# save one as et01.XX and compare to et01
+(et01.07$sizeChipForest - et01$sizeChipForest) %>% 
+  hist(main='difference is size of Chipman forests for different paramters')
+(et01.07$chip - et01$chip) %>% hist(main='logloss difference')
+

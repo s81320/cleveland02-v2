@@ -1,5 +1,8 @@
 # code / ChipmanSelection / 04_vis_single_simulations.R
 
+# no documentation : no idea what is done her - which functions to use...
+# which calc_LL_for_selection(doc , parameter[3,]) ??
+
 rm(list=ls())
 
 library(dplyr)
@@ -28,6 +31,9 @@ sizeSF <- rep(500,length(cutoff))
 
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 
+# where to load colc_LL_for_selection from ??
+# it should return a / many columns named size.d0, size.d1, ..
+# load from 03_hpo.R
 X1 <-  calc_LL_for_selection(doc , parameter[3,])
 
 names(X1)

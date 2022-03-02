@@ -76,7 +76,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:5]
+files <- list.files(folder)#[1:5]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -102,10 +102,11 @@ et %>%
   t %>% 
   xtable -> et.xt
 
-et.xt
+#et.xt
 digits(et.xt) <- 4
 et.xt
 
 et %>% 
   select(random, 'unimod hp', default) %>%
   summarize_all(function(x) c(median(x), IQR(x)))
+

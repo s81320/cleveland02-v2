@@ -1,7 +1,9 @@
 # 23.2.2022
-# code/chipmanSelection/02.R
-# trying to do all metrices in one loop
-# cutoff parameter is set individually for each metric . cutoff parameter should have been selected with 03_hyperparamter_selection.R
+# code/chipmanSelection/02_chipman_2.R
+# Chipman 2 uses the added tree plot (or the underlying calculations)
+# looping over the metrices
+# cutoff parameter is set individually for each metric . 
+# cutoff parameter should have been selected with 03_hpo.R
 
 rm(list=ls())
 
@@ -118,7 +120,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
     
     evalT[i,] <- c(i
                    , calcLogloss( forest, data.test)
-                   , calcLogloss( subforest(forest,sample(1:rg$num.trees, sizeSF)), data.test)
+                   , calcLogloss( subforest(forest, 1:sizeSF), data.test)
                    , calcLogloss( subforest(forest, oLL[1:sizeSF] ), data.test)
                    , unlist(res)
     )
