@@ -26,24 +26,24 @@ attr(data.test,'data.test.name') <- data.test.name
 calc_chipForest <- function(dm, sizeSF, oLL, forest, pco){
   #print(pco)
   chipForest <- oLL[1] # start forest with the best tree
-  cutoff <- quantile(dm,pco)
+  loDiv <- quantile(dm,pco) # level of diversity
   #print(cutoff)
   
-  for(j in 2:length(oLL)){
+  for(I in 2:length(oLL)){
     if(length(chipForest)==sizeSF){
       break
     }else{
-      trindx <- oLL[j]
+      trindx <- oLL[I]
       #print(paste(j,trindx))
       #print(paste(length(chipForest)))
       #print(paste('distances to current candidate:',dm[chipForest,trindx]))
-      if(min(dm[chipForest,trindx])>cutoff){
+      if(min(dm[chipForest,trindx])>=loDiv){
         #print(paste('logloss single tree now added: ' , LL[trindx]))
         chipForest <- c(chipForest, trindx)
       }
     }
   } # for exits with j the first index after all trees have been collected
-  return(list(calcLogloss( subforest(forest, chipForest ), data.test),j))
+  return(list(calcLogloss( subforest(forest, chipForest ), data.test),I))
 }
 
 calc_LL_for_selection <- function(doc, sizeSF){
@@ -64,20 +64,16 @@ calc_LL_for_selection <- function(doc, sizeSF){
     DM <-  doc[[i]]$DM
     
     data.train <- doc[[i]]$`bootstapped training data`
-    
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
     
-    # grow small forest (size nT)
-    rg <- doc[[i]]$rg
-    forest<-rg$forest
+    forest<-doc[[i]]$rg$forest
     
     pp <- predict(forest 
                   , data=data.set.val 
                   , predict.all = T)$predictions[,2,]
-    #pp <- simplify2array(pp, higher=FALSE)
     
-    lapply(1:rg$num.trees
+    lapply(1:forest$num.trees
            , function(k){ 
              pp[,k] %>% 
                calcLogloss2( df=data.set.val ) %>% 
@@ -108,7 +104,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
         # for 50 trees
         parameter.cutoff <-  list('d0'=0.02, 'd1'=0.04 , 'd2'=0.02 , 'sb'=0.02)
       }else{
-        print('no known cutoff parameter for given size of Chipman foorest')
+        print('no known cutoff parameter for given size of Chipman forest')
       }
     }
     
@@ -136,7 +132,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)#[6:10]
+files <- list.files(folder)[1:2]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -147,9 +143,9 @@ for(file in files){
   collector[[ct]] <- calc_LL_for_selection(doc , sizeSF)
   ct <-  ct+1
 }
-et02 <- bind_rows(collector)
+et02A <- bind_rows(collector)
 
-names(et02)[c(2:5,7,9,11)] <- c('default','random','not diverse','d0','d1','d2','sb')
+#names(et02)[c(2:5,7,9,11)] <- c('default','random','not diverse','d0','d1','d2','sb')
 
 #[4:7] <- c('random','unimod hp','chip','default')
 boxplot(et02[,c(2:5,7,9,11)]
