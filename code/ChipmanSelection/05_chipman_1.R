@@ -5,10 +5,9 @@
 rm(list=ls())
 
 library(dplyr)
-library(caret)
 library(ranger)
-library(effects)
 library(cluster)
+library(xtable)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
@@ -20,15 +19,18 @@ data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-sizeSF <-  5
-# parameter.alpha <-  list('d0'=0.3, 'd1'=0.6 , 'd2'=0.45 , 'sb'=0.4) # I around 150 , 75% above 100
-parameter.alpha <-  list('d0'=0.4, 'd1'=0.8 , 'd2'=0.6 , 'sb'=0.55) # I around 50 , 75% below 100
+sizeSF <-  50
+# parameters to cluster into 50 clusters
+parameter.alpha <-  list('d0'=0.111, 'd1'=0.465 , 'd2'=0.4125 , 'sb'=0.36) # I around 150 , 75% above 100
+# parameters suitable to cluster into 5 clusters
+# parameter.alpha <-  list('d0'=0.4, 'd1'=0.8 , 'd2'=0.6 , 'sb'=0.55) # I around 50 , 75% below 100
 
 #calc_chipForest_1 <- function(dm, oLL, forest, parameter.alpha, metric){
 calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
   #print(dim(dm))
   #print(pa)
   
+  # level of representation
   alpha <- quantile(dm,pa)
   #print(alpha)
   
@@ -86,6 +88,7 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
   # make this a basecase: Large Forest, smaller than default. Better?
   #calcLogloss( subforest(forest, 1:I ), data.test) %>% print
   
+  # regular code: cluster into the number of trees you want in the end
   if(I>sizeSF){
     hc <- cluster::agnes(dm2[1:I,1:I], 
                          method="ward", # always optimal - whenever I did hpo
@@ -107,7 +110,27 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
     #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
     }else{
       R=1:I
-      }
+    }
+  
+  # Alternative: cluster into fewer clusters and draw multiple trees from each cluser. Always the best (lowest logloss on OOB) possible
+  # cluster into 5 clusters and draw 10 from each cluster
+  # may retund NA if some clusters do not have 10 trees
+  #if(I>sizeSF){
+  #  hc <- cluster::agnes(dm2[1:I,1:I], 
+  #                       method="ward", # always optimal - whenever I did hpo
+  #                       #method = m[which.max(hpo)] , 
+  #                       diss=T)
+  #  hc.clus <- cutree(hc, k = 5)
+  #  # from each cluster select the tree with the smallest logloss (on OOB data)
+  #  lapply(1:sizeSF,function(i) which(hc.clus==i)[1:10]) %>% # we take the first, because indices are ordered, first is smallest
+  #    unlist -> R # representing subset
+  #  # print(R) # why is R of length 500 ??
+  #  R <- R[!is.na(R)] # drop NA , happens when some clusters are too small
+  #}else{
+  #  R=1:I
+  #}
+  
+  
   
     # that is the smallest index under the oLL ordering (as used for dm2)
     # then go back to the original tree indices!
@@ -197,19 +220,39 @@ for(file in files){
 }
 et02 <- bind_rows(collector)
 
+# too much information
+#et02 %>% 
+#  select(starts_with('LL.')) %>%
+#  boxplot( ylab='logloss'
+#        , main=paste('basecases and Chipman forests wrt dissimilarities\n(',50*length(files),' simulations)', sep='')
+#       # , main=paste(attr(et,'metric'), 'metric ,', num.clusters , 'clusters ,', sizeSF, 'trees in forest\nfor non-default')
+#)
+#abline(median(et02$LL.random),0,col='red')
+#abline(median(et02$LL.default),0, col='green')
+
+# reduce information
+par(mar=c(4,4,3,2)+0.1)
 et02 %>% 
-  select(starts_with('LL.')) %>%
+  select(starts_with('LL.chip.')) %>%
+  select(!ends_with(paste('.I.',c('d0','d1','d2','sb'),sep=''))) %>%
+  rename(c('d0'='LL.chip.d0','d1'='LL.chip.d1','d2'='LL.chip.d2','sb'='LL.chip.sb')) %>%
   boxplot( ylab='logloss'
-        , main=paste('basecases and Chipman forests wrt dissimilarities\n(',50*length(files),' simulations)', sep='')
-       # , main=paste(attr(et,'metric'), 'metric ,', num.clusters , 'clusters ,', sizeSF, 'trees in forest\nfor non-default')
-)
+           , xlab='dissimilarity for representation in Chipman I forest'
+           , main=paste('Chipman I forests wrt dissimilarities\n(',50*length(files),' simulations, ', sizeSF ,' representative trees)', sep='')
+           # , main=paste(attr(et,'metric'), 'metric ,', num.clusters , 'clusters ,', sizeSF, 'trees in forest\nfor non-default')
+  )
 abline(median(et02$LL.random),0,col='red')
 abline(median(et02$LL.default),0, col='green')
+legend('topleft' 
+       , legend=c('mean logloss default forest, size 500', 'mean logloss small forest, size 5')
+       , cex =0.8
+       , col=c('green','red')
+       , pch = '-')
 
 #names(et)
 et02 %>% 
   select(starts_with('LL.')) %>%
-  summarize_all(function(x) c(mean(x), sd(x))) %>% 
+  summarize_all(function(x) c(mean(x), sd(x), median(x), IQR(x))) %>% 
   t %>% xtable -> et.xt
 
 #et.xt
@@ -225,9 +268,13 @@ et02 %>%
 digits(et.xt) <- 4
 et.xt
 
+#sizes of representing subforests before clustering
 et02 %>% 
   select(starts_with('I.')) %>%
-  boxplot(main=paste('sizes of representing subforests, Chipman selection before clustering\n(sizeSF', sizeSF,', representation parameter', paste(unlist(parameter.alpha),collapse=',') ,')'))
+  rename(c('d0'='I.d0','d1'='I.d1','d2'='I.d2','sb'='I.sb')) %>%
+  boxplot(main=paste('Chipman I: sizes of representing subforests before clustering\n(representation parameter', paste(unlist(parameter.alpha),collapse=',') ,')')
+          , xlab='dissimilarity for representation in Chipman I forest'
+          , ylab=' number of trees')
 
 # we need to know:
 # do the small representing Chipman forests perform badly , and the large ones well?
