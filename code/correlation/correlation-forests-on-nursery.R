@@ -49,9 +49,11 @@ nLoops <- length(doc)
 #doc <- vector('list', nLoops)
 doc2 <- array(0,dim=c(nLoops,5,5))
 
-sizeSF <- 50
+sizeSF <- 5
+# split 500 into chunks of sizeSF , works with 5 and 50 (muss Teiler von 500 sein)
 # indices: 5 indices , 100 times , not random
-idcsList <- lapply(seq(1,500,by=sizeSF), function(i) i:(i+4))
+# or 50 indices , 10 times, not random
+idcsList <- lapply(seq(1,500,by=sizeSF), function(i) i:(i+sizeSF-1))
 
 # createDataPartition(Hung$CAD, times=nLoops, p=0.5) -> val.set.partition
 createDataPartition(data.val$CAD, times=nLoops, p=0.5) -> val.set.partition
@@ -69,7 +71,7 @@ for(i in 1:nLoops){
   rg <- doc[[i]]$rg
   forest<-rg$forest
   
-  # 100 sub-forests of 5 trees
+  # 100 sub-forests of 5 trees, or 10 subforests of 50 trees
   forestList <- lapply(idcsList, function(vec) subforest(rg$forest, vec))
   
   f1 <-  function(vec, data){

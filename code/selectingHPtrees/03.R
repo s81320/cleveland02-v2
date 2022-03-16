@@ -1,6 +1,9 @@
-# code / selectingHPtrees / 01.R
-# looping over simulations : selection strategy for the small forest:
+# code / selectingHPtrees / 03.R
+# looping over simulations : as forest2 grow forest of 5000 (or more?? overfitting?) trees
 # select trees that perform best on OOB data from simulations
+# the best 50 selected from 5000 should perform better than the best 50 selected from 500
+
+# no result
 
 rm(list=ls())
 
@@ -37,17 +40,27 @@ calc_LL_for_selection <- function(doc, sizeSF){
     forest<- doc[[i]]$rg$forest
     
     data.train <- doc[[i]]$`bootstapped training data`
-
+    forest2 <- ranger(CAD~.
+                 , data = data.train 
+                 , num.trees = 2500
+                 , replace = F # neu nach Absprache mit AZ
+                 , mtry= 3 # default : 3
+                 , importance = 'impurity'
+                 , probability = T # this makes it a random forest of type 'Probability Estimation'
+                 , min.node.size = 13 # optimized in A.Z. paper: BiomJ 56, 2014, 
+    )$forest
+    
+    
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
     
-    pp <- predict(forest 
+    pp <- predict(forest2
               , data=data.set.val 
               , predict.all = T)$predictions[,2,]
     #pp <- simplify2array(pp, higher=FALSE)
 
     # is this the same as Vectorize ??!!
-    lapply(1:forest$num.trees
+    lapply(1:forest2$num.trees
        , function(k){ 
          pp[,k] %>% 
            calcLogloss2( df=data.set.val ) %>% 
@@ -63,7 +76,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
     
   evalT[i,] <- c(i
                 , calcLogloss(subforest(forest,1:sizeSF), data.test)
-                , calcLogloss( subforest(forest, hpst ), data.test)
+                , calcLogloss( subforest(forest2, hpst ), data.test)
                 , calcLogloss(forest, data.test)
                 )
   }
@@ -74,7 +87,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)#[1:5]
+files <- list.files(folder)[1:5]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -87,7 +100,7 @@ for(file in files){
 }
 et <- bind_rows(collector)
 
-names(et)[2:4] <- c('random','unimod hp','default')
+names(et)[2:4] <- c('random','hp5K','default')
 boxplot(et[,2:4]
         , ylab='logloss'
         #, main=paste(attr(et,'metric'), 'metric ,', num.clusters , 'clusters ,', sizeSF, 'trees in forest\nfor non-default')
@@ -95,7 +108,7 @@ boxplot(et[,2:4]
 
 #names(et)
 et %>% 
-  select(random, 'unimod hp', default) %>%
+  select(random, hp5K, default) %>%
   summarize_all(function(x) c(mean(x), sd(x))) %>%
   t %>% 
   xtable -> et.xt
@@ -105,6 +118,6 @@ digits(et.xt) <- 4
 et.xt
 
 et %>% 
-  select(random, 'unimod hp', default) %>%
+  select(random, hp5K, default) %>%
   summarize_all(function(x) c(median(x), IQR(x)))
 

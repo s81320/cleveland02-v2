@@ -11,134 +11,29 @@ rm(list=ls())
 library(dplyr)
 library(ranger)
 library(cluster)
+library(diptest)
+
+load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
 source('code/source/chipman.R') # for calc_chipForest_2 , calc_LL_for_selection
-
-load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
 data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-calc_meinForest <- function(dm , forest, oLL, parameter){
-  #' calculates the Meiner forest
-  #' 
-  #' @param parameter is a list with items cutoff and sizeSF 
-  #'
-  #' returns its logloss on data.test (from higher environment)
-  #' returns the rank of the last inspected tree (or the index +1 , like 6 when collecting the first 5 trees)
-  #' returns the number of trees in the Meiner forest (enforced to be parameters$sizeSF or smaller)
-  
-  meinForest <- oLL[1] # start chipForest with the best tree
-  loDiv <- quantile(dm,parameter$cutoff) # level of diversity
-  #print(cutoff)
-  
-  # go through trees (ordered by performance) until sizeSF trees are collected / selected
-  for(I in 2:length(oLL)){
-    if(length(meinForest)==parameter$sizeSF){
-      break
-    }else{
-      trindx <- oLL[I]
-      # if new tree far from (current) meinForest , add the best tree (lowest logloss) to the meinForest that represents trindx.
-      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
-      if(min(dm[meinForest,trindx]) >= loDiv){ 
-        base::setdiff(oLL[1:I], meinForest) %>%
-          dm[.,trindx] %>%
-          (function(x) x<parameter$cutoff) %>%
-          which.min %>%
-          base::setdiff(oLL[1:I], meinForest)[.] %>%
-          c(meinForest) -> meinForest
-          # alternative to calc_chipForest :
-         # chipForest <- c(chipForest, trindx)
-      }
-    }
-  } # for exits with j the first index after all trees have been collected
-  return(list(calcLogloss( subforest(forest, meinForest ), data.test)
-              , I
-              , length(meinForest)))
-}
-
-"
-calc_LL_for_selection <- function(doc, parameter){
-  #' gets arguments and calculates arguments for calc_chipForest_2 from doc
-  #' then runs loops over calc_chipForest_2 for all metrices and all simulations in doc
-  #' 
-  #' parameter is (only and directly) passed to calc_chipForest_2 
-  
-  nT <- doc[[1]]$rg$num.trees
-  sizeDefault <- nT
-  
-  nBs <- length(doc)
-  #nBs <- 5
-  
-  evalT <- matrix(NA,nrow=nBs,ncol=12) # table of evaluations
-  
-  ct <- 1
-  for(i in 1:nBs){
-    #print(paste(i/nBs , Sys.time()))
-    #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
-    
-    DM <-  doc[[i]]$DM
-    
-    data.train <- doc[[i]]$`bootstapped training data`
-    OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
-    data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
-    
-    forest<-doc[[i]]$rg$forest
-    
-    pp <- predict(forest 
-                  , data=data.set.val 
-                  , predict.all = T)$predictions[,2,]
-    
-    lapply(1:forest$num.trees
-           , function(k){ 
-             pp[,k] %>% 
-               calcLogloss2( df=data.set.val ) %>% 
-               unlist
-           }) %>% 
-      unlist -> LL
-    
-    # LL can be calculated with vectorize :
-    #((function(k){ 
-    #  pp[,k] %>% 
-    #    calcLogloss2( df=data.set.val ) %>% 
-    #    unlist
-    #} )%>%
-    #Vectorize(.))(1:rg$num.trees) -> LL
-    
-    oLL <- order(LL) # tree indices , ordered by logloss on OOB
-    
-    metrices <- names(DM)
-    res <- list()
-    
-    for(metric in metrices){
-      DM[[metric]] %>%
-        calc_chipForest_2(forest, oLL, parameter) -> res[[metric]]
-        #calc_meinForest(forest, oLL, parameter) -> res[[metric]]
-    }
-    evalT[i,] <- unlist(res)
-  }
-  
-  evalT <-  data.frame(evalT)
-  names(evalT) <- c(paste(rep(c('LL.test.chip.','I.','size.'),4),rep(c('d0','d1','d2','sb'),each=3),sep=''))
-  return(evalT)
-}
-"
-#paste(rep(c('LL.test.chip.','j.'),4),rep(c('d0','d1','d2','sb'),each=2),sep='')
-
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:1]
+files <- list.files(folder)[1:2]
 # dir(folder)
 
-cutoff <- seq(0, 1,by=0.01)
+cutoff <- seq(0.0, 0.9, by=0.1)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with dissim 0 represent each other. Happens only for d0.
-sizeSF <- rep(500,length(cutoff))
+sizeSF <- rep(50,length(cutoff))
 
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 # parameter$cutoff
@@ -155,16 +50,27 @@ for(p in 1:nrow(parameter)){
   for(file in files){
     # run loops over doc loaded from file
     load(paste(folder,file, sep='/')) # loads doc
+    #print( parameter[p,])
     collector.f[[ct.f]] <- calc_LL_for_selection(doc , parameter[p,])
     ct.f <-  ct.f+1
   }
-  collector.p[[ct.p]] <- c(parameter[p,], apply(bind_rows(collector.f),2,mean)) %>% unlist
+  
+  apply(bind_rows(collector.f),2,mean) %>% # remove NA before taking the mean??
+    c(parameter[p,]) %>% 
+    unlist -> 
+    collector.p[[ct.p]]
+  
   ct.p <- ct.p+1
 }
 
 et03 <- data.frame(bind_rows(collector.p))
 
+et03 %>% t %>% xtable -> xtb.ch2
+digits(xtb.ch2) <-  4
+xtb.ch2
+
 # save(et03 , file='data/chipman/hyperparameter_cutoff_5trees*.rda')
+# save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
 # makes no sense. et03 is already aggregated, averaged over...
@@ -255,7 +161,7 @@ legend( 'topleft'
 # for selected metric : size and logloss in one plot
 {
   par(mar=c(4,4,3,4)+0.2)
-  metric <- 'd0'
+  metric <- 'd1'
   et03 %>% select(cutoff , ends_with(metric)) -> etA
   x <-  etA$cutoff
   y <-  etA %>% select(starts_with('size')) %>% unlist
@@ -270,3 +176,20 @@ legend( 'topleft'
   axis(side=4, at = pretty(range(z)), col='blue')
   mtext("success: logloss", side=4, line=3 , col='blue')
 }
+
+# plot logloss over size
+# must be some kind of smoothing of the many pairs of (size, logloss) we generate over the 100 or 1000 simulations
+
+par(mar=c(4,4,2,1)+0.1)
+ylim <-  range(et03 %>% select(starts_with('LL')))
+plot(et03$cutoff
+     , et03$LL.test.chip.d0
+     , type='l'
+     , ylim=ylim 
+     , xlab='cutoff parameter' 
+     , ylab='logloss'
+     , main='logloss for Meiner forest stopped at 5 trees')
+points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
+points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
+points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
+legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)

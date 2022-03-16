@@ -11,6 +11,7 @@ rm(list=ls())
 library(dplyr)
 library(ranger)
 library(cluster)
+library(xtable)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
@@ -23,57 +24,18 @@ data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-calc_meinForest <- function(dm , forest, oLL, parameter){
-  #' calculates the Meiner forest
-  #' 
-  #' @param parameter is a list with items cutoff and sizeSF 
-  #'
-  #' returns its logloss on data.test (from higher environment)
-  #' returns the rank of the last inspected tree (or the index +1 , like 6 when collecting the first 5 trees)
-  #' returns the number of trees in the Meiner forest (enforced to be parameters$sizeSF or smaller)
-  
-  meinForest <- oLL[1] # start chipForest with the best tree
-  loDiv <- quantile(dm,parameter$cutoff) # level of diversity
-  #print(cutoff)
-  
-  # go through trees (ordered by performance) until sizeSF trees are collected / selected
-  for(I in 2:length(oLL)){
-    if(length(meinForest)==parameter$sizeSF){
-      break
-    }else{
-      trindx <- oLL[I]
-      # if new tree far from (current) meinForest , add the best tree (lowest logloss) to the meinForest that represents trindx.
-      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
-      if(min(dm[meinForest,trindx]) >= loDiv){ 
-        base::setdiff(oLL[1:I], meinForest) %>%
-          dm[.,trindx] %>%
-          (function(x) x<parameter$cutoff) %>%
-          which.min %>%
-          base::setdiff(oLL[1:I], meinForest)[.] %>%
-          c(meinForest) -> meinForest
-          # alternative to calc_chipForest :
-         # chipForest <- c(chipForest, trindx)
-      }
-    }
-  } # for exits with j the first index after all trees have been collected
-  return(list(calcLogloss( subforest(forest, meinForest ), data.test)
-              , I
-              , length(meinForest)))
-}
-
-
 #paste(rep(c('LL.test.chip.','I.'),4),rep(c('d0','d1','d2','sb'),each=2),sep='')
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)#[1:5]
+files <- list.files(folder)#[1:2]
 # dir(folder)
 
 # give parameter for each dissimilarity
-parameter <- list('d0'=list('cutoff'=0.2, 'sizeSF'=500)
-, 'd1'=list('cutoff'=0.3, 'sizeSF'=500)
-,'d2'=list('cutoff'=0.4, 'sizeSF'=500)
-,'sb'=list('cutoff'=0.5, 'sizeSF'=500)
+parameter <- list('d0'=list('cutoff'=0.2, 'sizeSF'=50)
+, 'd1'=list('cutoff'=0.2, 'sizeSF'=50)
+,'d2'=list('cutoff'=0.2, 'sizeSF'=50)
+,'sb'=list('cutoff'=0.2, 'sizeSF'=50)
 )
 
 # names(parameter)

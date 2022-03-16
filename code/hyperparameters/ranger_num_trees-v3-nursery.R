@@ -7,7 +7,7 @@
 # can be used with simulation and without
 # and for different sets as training and test sets
 
-# 3.2.2022
+# 11.3.2022
 
 # Use Cleve as training data, Swiss as validation data, Hung as test
 
@@ -67,19 +67,19 @@ calc_LL_matrix <- function(doc , nt, data.test){
 # to base the result on more bootstraps
 folder <- 'data/nursery'
 files <- list.files(folder)
-# dir(folder)
+
 collector <-  list()
 ct <-  1 # counter for the above collector
 
 #data.test <- Hung
 #attr(data.test,'data.test.name') <- 'Hung'
 
-data.test.name <-  'VA'
-# data.test <-  VA
-data.test <-  get(data.test.nayme)
+data.test.name <-  'Swiss'
+data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-nt <- c(5,10,50,500)
+# nt <- c(5,10,50,500)
+nt <- c(2,3,4,5,6,7,8,9, seq(10,500,10))
 
 for(file in files){
   # run loops over doc loaded from file
@@ -87,14 +87,16 @@ for(file in files){
   LL <- calc_LL_matrix(doc, nt=nt, data.test=data.test)
   # keep result from loop and merge them all together
   collector[[ct]] <- LL
-  ct <-  LL_ct+1
+  ct <-  ct+1
 }
 
 LL <- bind_rows(collector)
 attr(LL,'data.test.name') <- attr(data.test,'data.test.name') 
 
-boxplot(LL[,c(3,4)]
-        , main=paste('logloss for forests of different sizes\n(trained on simulated Cleveland, tested on', attr(data.test,'set.name'),')') 
+#save(LL,file='data/LL_nested_regular_forests_size_2_to_500.rda')
+
+boxplot(LL
+        , main=paste('logloss for forests of different sizes\n(trained on simulated Cleveland, tested on', attr(data.test,'data.test.name'),')') 
         , sub=paste('N=',nrow(LL),'(nr of observations per size)')
         , xlab= 'forest size , number of trees in forest'
         , ylab='logloss')
@@ -102,13 +104,44 @@ boxplot(LL[,c(3,4)]
 xt <- apply(LL,2,function(x)c(mean(x),sd(x)))
 rownames(xt) <- c('mean','sd')
 
-t(xt) %>% xtable -> xt
-digits(xt) <- 4
-xt
+plot(colnames(xt)[1:9]
+     , xt['mean',1:9]
+     , type='b'
+     , main='sucess over size, regular forests'
+     , xlab='size: number of trees in forest (2,..,10)'
+     , ylab='sucess: mean logloss')
+
+plot(colnames(xt)[9:18]
+     , xt['mean',9:18]
+     , type='b'
+     , main='sucess over size, regular forests'
+     , xlab='size: number of trees in forest (seq(10,100,10))'
+     , ylab='sucess: mean logloss')
+
+
+plot(colnames(xt)[18:ncol(xt)]
+     , xt['mean',18:ncol(xt)]
+     , type='l'
+     , main='sucess over size, regular forests'
+     , xlab='size: number of trees in forest (seq(100,500,10))'
+     , ylab='sucess: mean logloss')
+
+
+t(xt) %>% xtable -> xxt
+digits(xxt) <- 7
+xxt
 
 xt <- apply(LL,2,function(x)c(median(x),IQR(x)))
 rownames(xt) <- c('median','IQR')
-t(xt) %>% xtable -> xt
-digits(xt) <- 4
-xt
+t(xt) %>% xtable -> xxt
+digits(xxt) <- 4
+xxt
+
+# tradeoff
+(LL[,'50'] %>% mean)/((LL[,'500'] %>% mean))
+(LL[,'5'] %>% mean)/(LL[,'500'] %>% mean)
+(LL[,'5'] %>% mean-LL[,'500'] %>% mean)/((LL[,'500'] %>% mean))
+
+(LL[,'50'] %>% sd)/((LL[,'500'] %>% sd))
+(LL[,'5'] %>% sd)/((LL[,'500'] %>% sd))
 

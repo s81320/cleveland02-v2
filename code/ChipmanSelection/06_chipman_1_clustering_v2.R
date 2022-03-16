@@ -20,15 +20,15 @@ data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-parameter.alpha <-  list('d0'=0.111, 'd1'=0.465 , 'd2'=0.4125 , 'sb'=0.36) # I around 250
-# parameter.alpha <-  list('d0'=0.5, 'd1'=0.5 , 'd2'=0.5 , 'sb'=0.5)
+#parameter.alpha <-  list('d0'=0.111, 'd1'=0.465 , 'd2'=0.4125 , 'sb'=0.36) # I around 250
+parameter.alpha <-  list('d0'=0.5, 'd1'=0.5 , 'd2'=0.5 , 'sb'=0.5)
 
 calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
   #print(dim(dm))
   #print(pa)
   
   selectCentralTree <-  !TRUE
-  selectBestTree <-  !FALSE
+  selectBestTree <-  TRUE
   assertthat::assert_that(!selectCentralTree==selectBestTree, msg='Either select best or central tree per cluster, not both, not either.')
   
   # level of representation
@@ -36,8 +36,11 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
   #print(alpha)
   
   represented <-  function(I){
+    #' testing for representation of best I trees (R= dense representing forest = {1,..,I}) at level alpha
+    #' 
+    #' uses dm2 and alpha from parent environment. i.e. function calc_chipForest_1
     #' for I >1 , 
-    #' representation by one tree alone it only at level of largest dissimilarity
+    #' representation by one tree alone can happen only at level of largest dissimilarity
     #' no representation by almost all trees (I==N-1) only if last tree, 
     #' index N, is far away from all others, further than cutoff
     #assertthat::assert_that(class(I)=='numeric', 'argument I has to be numeric') %>% print
@@ -45,7 +48,7 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
     
     if(I==1){ # max
       dm2[1,2:N] %>% max %>%
-        (function(x){x<=alpha}) # cutoff.a  used to be cutoff , will become alpha
+        (function(x){x<=alpha}) 
     }else{
       if(I==N-1){ # min
         dm2[1:(N-1),N] %>% min %>%
@@ -61,12 +64,7 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
   
   # dm should be ordered
   dm2 <-  dm[oLL,oLL]
-  #oLL[1]
-  #LL[oLL]
-  # N <- forest$num.trees 
   N <-  nrow(dm2)
-  
-  I <- 1
   
   if(alpha<max(dm2)){
     I <- 2
@@ -75,41 +73,31 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
     }
   }else{I <- 1}
   # exits with smallest I with represented(I) TRUE
-  #represented(I)
-  #print(paste('representing with 1..', I))
   
-  #m <- c( "average", "single", "complete", "ward")
-  #names(m) <- c( "average", "single", "complete", "ward")
-  # function to compute coefficient
-  #ac <- function(x) {
-  #  agnes(dm2[1:I,1:I], method = x, diss=T)$ac
-  #}
-  #hpo <-  lapply(m, ac)
+  # dissimilarity matrix needed only for R
+  dm2 <-  dm[oLL[1:I],oLL[1:I]] # careful :  dm[oLL[1:I],oLL[1:I]] != dm2[1:I,1:I]
+  # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
-  # make this a basecase: Large Forest, smaller than default. Better?
-  #calcLogloss( subforest(forest, 1:I ), data.test) %>% print
-
-  # cluster only if unimodality is rejected
-  lapply(1:nrow(dm) , function(i) dip.test(dm2[i,-i])$p.value) %>% 
+  # dip test for all trees in R (dense representing forest)
+  lapply(1:I , function(i) dip.test(dm2[i,-i])$p.value) %>%  # changed to 1:I , used to be 1:nrow(dm) , 8.3.2022
     unlist %>% 
     min %>% 
     (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
   
+  # cluster only if unimodality is rejected
   if(multimod){ # if hypothesis of unimodality is rejected : cluster
   #print('multimod')
-  hc <- cluster::agnes(dm2[1:I,1:I], 
+  hc <- cluster::agnes(dm2, 
                          method="ward", # always optimal - whenever I did hpo
-                         #method = m[which.max(hpo)] , 
                          diss=T)
-    #pltree(hc, cex = 0.6, hang = -1, main = paste(m[which.max(hpo)], ',', metric))
-    
+
   col1 <- list()
   # alle möglichen Anzahlen von clustern , nicht alle machen Sinn
   # lapply(min(I-1,10):min(I-1,100), # nur zwischen 10 und 100 cluster bzw representative Bäume
   lapply(2:(I-1), 
            function(k){
              cutree(hc, k = k) %>% 
-               silhouette(dmatrix=dm2[1:I,1:I])%>%
+               silhouette(dmatrix=dm2)%>%
                .[,'sil_width'] %>%
                mean
            } ) -> col1
@@ -126,7 +114,8 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
     
     # from each cluster select the tree with the smallest logloss (on OOB data)
   if(selectBestTree){
-  lapply(1:kOpt,function(i) which(hc.clus==i)[1]) %>% # we take the first, because indices are ordered, first is smallest
+  lapply(1:kOpt,function(i) which(hc.clus==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
+      # oLL to go back to original index
       unlist -> R # representing subset
     # if indices were not ordered, we'd do 
     #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
@@ -138,10 +127,11 @@ calc_chipForest_1 <- function(dm, oLL, forest, pa){ # pa : parameter alpha
          function(i){
            x <-  which(hc.clus==i) # trees of cluster i
            lapply(1:length(x), 
-                  function(j){sum(dm[x[j],x])} %>% # Summe der Abstände zu allen Elementen des eigenen clusters
+                  function(j){sum(dm[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
                     unlist ) %>% 
-             which.min %>% # kleinste summe der Abstände
-             x[.] # zugehöriges Element in x
+             which.min %>% # smallest sum of dissimilaritites
+             x[.] %>% # zugehöriges Element in x
+             oLL[.] # original index in default forest
          }
   ) %>% unlist -> R
   }
