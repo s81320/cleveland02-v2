@@ -1,0 +1,82 @@
+50 trees , 1000 simulations , tested on Swiss
+#############################################
+alpha parameters 'd0'=0.4, 'd1'=0.8 , 'd2'=0.6 , 'sb'=0.55
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrr}
+\hline
+& mean & std dev \\ 
+\hline
+LL.default & 0.5467 & 0.0798 \\ 
+LL.random & 0.5517 & 0.0838 \\ 
+LL.hp & 0.5442 & 0.0754 \\ 
+LL.chip.d0 & 0.5570 & 0.0912 \\ 
+LL.chip.I.d0 & 0.5558 & 0.0907 \\ 
+LL.chip.d1 & 0.5566 & 0.0883 \\ 
+LL.chip.I.d1 & 0.5555 & 0.0873 \\ 
+LL.chip.d2 & 0.5538 & 0.0863 \\ 
+LL.chip.I.d2 & 0.5528 & 0.0852 \\ 
+LL.chip.sb & 0.5569 & 0.1086 \\ 
+LL.chip.I.sb & 0.5564 & 0.1088 \\ 
+\hline
+\end{tabular}
+\end{table}
+
+values for I
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrr}
+\hline
+& mean & std dev \\ 
+\hline
+I.d0 & 103.1400 & 111.3810 \\ 
+I.d1 & 87.5380 & 100.6953 \\ 
+I.d2 & 100.1760 & 109.0314 \\ 
+I.sb & 80.9550 & 98.7073 \\ 
+\hline
+\end{tabular}
+\end{table}
+
+
+5 trees, 1000 simulations , tested on Swiss
+###########################################
+same alpha parameters as before
+'d0'=0.4, 'd1'=0.8 , 'd2'=0.6 , 'sb'=0.55
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrr}
+  \hline
+ & 1 & 2 \\ 
+  \hline
+LL.default & 0.5467 & 0.0798 \\ 
+  LL.random & 0.6574 & 0.2450 \\ 
+  LL.hp & 0.6138 & 0.1728 \\ 
+  LL.chip.d0 & 0.6515 & 0.2179 \\ 
+  LL.chip.I.d0 & 0.5558 & 0.0907 \\ 
+  LL.chip.d1 & 0.6460 & 0.2022 \\ 
+  LL.chip.I.d1 & 0.5555 & 0.0873 \\ 
+  LL.chip.d2 & 0.6577 & 0.2346 \\ 
+  LL.chip.I.d2 & 0.5528 & 0.0852 \\ 
+  LL.chip.sb & 0.6589 & 0.2260 \\ 
+  LL.chip.I.sb & 0.5564 & 0.1088 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+# since the alpha parameter is the same, the sizes are the same, too.
+# and the performance (above) for the chip.I.dx forests is the same, too.
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrr}
+  \hline
+ & 1 & 2 \\ 
+  \hline
+I.d0 & 103.1400 & 111.3810 \\ 
+  I.d1 & 87.5380 & 100.6953 \\ 
+  I.d2 & 100.1760 & 109.0314 \\ 
+  I.sb & 80.9550 & 98.7073 \\ 
+   \hline
+\end{tabular}
+\end{table}
+

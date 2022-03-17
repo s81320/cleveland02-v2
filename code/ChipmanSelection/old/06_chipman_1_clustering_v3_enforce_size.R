@@ -14,7 +14,7 @@ library(xtable)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
-source('code/source/chipman.R') # calc_oLL
+source('code/source/chipman.R') # calc_oLL , calc_chipForest_1_enforce , calc_LL_for_selection
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
@@ -24,54 +24,6 @@ data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
 sizeSF <- 5
-
-calc_chipForest_1_enforce <- function(dm, oLL, forest){ 
-  #print(dim(dm))
-  #print(pa)
-  
-  selectBestTree <-  TRUE
-  selectCentralTree <-  !TRUE
-
-  assertthat::assert_that(!selectCentralTree==selectBestTree, msg='Either select best or central tree per cluster, not both, not either.')
-  
-  # dissimilarity matrix needed only for R
-  dm2 <-  dm[oLL[1:250],oLL[1:250]] # select the better half of trees
-  
-  hc <- cluster::agnes(dm2, 
-                         method="ward", # always optimal - whenever I did hpo
-                         diss=T)
-
-  hc.clus <- cutree(hc, k = sizeSF)
-    
-  # from each cluster select the tree with the smallest logloss (on OOB data)
-  if(selectBestTree){
-  lapply(1:sizeSF,function(i) which(hc.clus==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
-      # oLL to go back to original index
-      unlist -> R # representing subset
-    # if indices were not ordered, we'd do 
-    #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
-  }
- 
-  if(selectCentralTree){
-  lapply(1:sizeSF,
-         function(i){
-           x <-  which(hc.clus==i) # trees of cluster i
-           lapply(1:length(x), 
-                  function(j){sum(dm[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
-                    unlist ) %>% 
-             which.min %>% # smallest sum of dissimilaritites
-             x[.] %>% # zugehöriges Element in x
-             oLL[.] # original index in default forest
-         }
-  ) %>% unlist -> R
-  }
-  
-  return(list(calcLogloss( subforest(forest, R ), data.test)
-              , NA
-              , sizeSF
-              )
-  )
-}
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'

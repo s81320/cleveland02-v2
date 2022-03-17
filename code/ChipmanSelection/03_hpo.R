@@ -26,14 +26,14 @@ attr(data.test,'data.test.name') <- data.test.name
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:2]
+files <- list.files(folder)#[1:2]
 # dir(folder)
 
 cutoff <- seq(0.0, 0.9, by=0.1)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with dissim 0 represent each other. Happens only for d0.
-sizeSF <- rep(50,length(cutoff))
+sizeSF <- rep(500,length(cutoff))
 
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 # parameter$cutoff
