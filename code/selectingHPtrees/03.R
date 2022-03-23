@@ -19,7 +19,7 @@ source('code/source/subforest.R') # subforest
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Swiss'
+data.test.name <-  'Hung'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
@@ -42,7 +42,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
     data.train <- doc[[i]]$`bootstapped training data`
     forest2 <- ranger(CAD~.
                  , data = data.train 
-                 , num.trees = 2500
+                 , num.trees = 500 # 5000
                  , replace = F # neu nach Absprache mit AZ
                  , mtry= 3 # default : 3
                  , importance = 'impurity'
@@ -87,7 +87,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:5]
+files <- list.files(folder)#[1:5]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector

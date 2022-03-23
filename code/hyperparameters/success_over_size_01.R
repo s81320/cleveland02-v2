@@ -1,10 +1,13 @@
 # visualize data generated in hyperparameters / ranger_num_trees-v3-nursery.R
+# and from code / ChipmanSelection / 03_hpo.R
+
+library(dplyr)
 
 load('data/LL_nested_regular_forests_size_2_to_500.rda') # loads LL
 
 folder <- 'data/chipman'
 files <- list.files(folder) ; files
-file <- files[[6]] ; file
+file <- files[[3]] ; file
 load(paste(folder,file,sep='/'))
 et <- et03
 
@@ -68,8 +71,8 @@ legend('topright'
        , cex=0.8
 )
 
-
-ylim <- range(0.54,0.58)
+par(mar=c(4,4,1,1)+0.01)
+ylim <- range(0.54,0.60)
 LL[,which((as.integer(colnames(LL)) > 9 ) & (as.integer(colnames(LL)) < 101 ) )] %>%
   apply(2,mean) %>%
   plot(x=names(.), y=. , 
