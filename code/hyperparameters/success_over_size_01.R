@@ -1,8 +1,13 @@
 # visualize data generated in hyperparameters / ranger_num_trees-v3-nursery.R
 
 load('data/LL_nested_regular_forests_size_2_to_500.rda') # loads LL
-load('data/hpo_chip1.rda') # loads hpo_chip1
-load('data/hpo_chip2.rda') # loads hpo_chip2
+
+folder <- 'data/chipman'
+files <- list.files(folder) ; files
+file <- files[[6]] ; file
+load(paste(folder,file,sep='/'))
+et <- et03
+
 
 # trade of for sucess and size for the regular random forest
 apply(LL[1:100,],2,mean) -> LL.m # mean values only
@@ -32,10 +37,6 @@ plot(colnames(LL)[18:58] %>% as.integer
      )
 
 # new methods in the context of regular random forests
-# chipman 1
-#et <- hpo_chip2
-et <- hpo_mei
-
 matrix(nrow=0, ncol=5) %>%
   data.frame %>%
   setNames(c('logloss','I','size','dissim','cutoff')) -> et2
@@ -68,8 +69,6 @@ legend('topright'
 )
 
 
-
-
 ylim <- range(0.54,0.58)
 LL[,which((as.integer(colnames(LL)) > 9 ) & (as.integer(colnames(LL)) < 101 ) )] %>%
   apply(2,mean) %>%
@@ -80,7 +79,6 @@ LL[,which((as.integer(colnames(LL)) > 9 ) & (as.integer(colnames(LL)) < 101 ) )]
        , ylab='logloss'
        #, main='success over size for Chipman 2 forests\nin context of regular random forests'
        )
-
 abline(mean(LL[,'500']),0,col='grey')
 
 text(et2[(et2$size > 9)&(et2$size<101),'size']

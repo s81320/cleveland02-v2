@@ -6,7 +6,10 @@
 # later draw a bootstrap sample (or many...) from the enriched Cleveland data set
 # and recreate / the CAD column : 
 # CAD values are 0/1 drawn under a binomial distribution with parameter of success p=prob
-load('data/data_SupMat4.rda')
+
+#load('data/data_SupMat4.rda') # removed 22.3.22
+
+print('Sourcing sim-prep-v2.R : contains functions create_prob() and new_bootstrap() ')
 
 create_prob <- function(df){
   #' create a probability column based on a target colum

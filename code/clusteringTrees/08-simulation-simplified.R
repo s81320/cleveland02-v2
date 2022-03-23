@@ -117,7 +117,7 @@ calc_LL_for_selection <- function(doc, sizeSF, num.clusters){
   evalT[i,] <- c(i
                 , length(treesSelected)
                 , calcLogloss(subforest(forest,unlist(treesSelected)), data.test)
-                , calcLogloss(subforest(forest,sample(1:rg$num.trees, sizeSF)), data.test)
+                , calcLogloss(subforest(forest,1:sizeSF), data.test)
                 , calcLogloss( subforest(forest, hpst ), data.test)
                 , calcLogloss(forest, data.test)
                 )

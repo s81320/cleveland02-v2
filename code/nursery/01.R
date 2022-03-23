@@ -15,10 +15,11 @@ library(dplyr)
 metrices <- c('d0','d1','d2','sb')
 nT <- 500 # to set num.trees=nT in ranger
 
+load('data/data_SupMat4.rda')
+# original Cleve is needed in createDMd1
+
 source('code/source/sim-prep-v2.R') # loads functions create_prob , new_bootstrap
 Cleve_enriched <- create_prob(Cleve)
-
-#df <- df[1:10,]
 
 source('code/source/distance-matrices.R')
 
@@ -53,14 +54,19 @@ for(i in 1:nBs){
   
   DM <- list()
 
-  for(metric in metrices){
-    # print(paste('    ' , metric , Sys.time()))
-    
-    DM[[metric]] <- createDM(forest=rg$forest , type=metric, dft=data.train)
-  }
+  DM$d0 <- createDMd0(forest=forest)
+  DM$d1 <- createDMd1(forest=forest, dft=Cleve[cr[[i]],]) # working with original Cleveland data , no prob, no CAD needed
+  DM$d2 <- createDMd2(forest=forest, dft=data.train)
+  DM$sb <- createDMsb(forest=forest)
+  
+  # old code, changed 22.03.2022
+  #for(metric in metrices){
+  #    # print(paste('    ' , metric , Sys.time()))
+  #  DM[[metric]] <- createDM(forest=rg$forest , type=metric, dft=data.train)
+  #}
   
   doc[[i]] <-  list('resample'=cr[[i]] 
-                    , 'bootstapped training data'=data.train 
+                    , 'bootstrapped training data'=data.train 
                     , 'rg'=rg 
                     , 'DM'=DM)
 }

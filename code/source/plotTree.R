@@ -5,6 +5,9 @@
 library(dplyr)
 library(ranger)
 library(igraph)
+library(docstring)
+
+print('s o u r c e d  f r o m  PLOTTREE.R: functions plotTree1 , plotTreeFb')
 
 plotTree1 <- function(rg,tri,...){
   #' plot a single ranger tree, the split nodes only
@@ -17,17 +20,34 @@ plotTree1 <- function(rg,tri,...){
   # remove terminal nodes
   ti <- ti[!ti$terminal,]
   
-  ti$splitvarName %>% unique -> d0.info
+  # replace splitvar names by shorter names
+  #"
+  repl <-  list('Chestpaintype'='ChestPT'
+                , 'RestingBP'='restBP'
+                , 'Cholesterol'='Chol'
+                , 'HighFastBloodSugar'='highFBS'
+                , 'RestingECG'='restECG'
+                , 'ExInducedAngina'='exAng'
+                , 'STDepression'='stDep'
+                , 'MaxHeartRate'='maxHR'
+                )
+  lapply(1:length(repl)
+         , function(i){ti[ti$splitvarName==names(repl)[[i]],'splitvarName'] <<-repl[[i]]})
+  #"
+
+  ti$splitvarName %>% unique -> d0.info.name
+  ti$splitvarID %>% unique -> d0.info.ID
   
   # the split nodes by ID : s_plit n_odes
   sn <- ti[,c('nodeID','splitvarID','splitvarName')]
-  # sn %>% print
+  sn %>% print
+  
   # el : e_dge l_ist
   # final number of rows (=edges) unknown , maximal number of edges is number of nodes -1
   # columns : nodeID of split node , nodeID of child node , info if it is a left or right child
   el <- matrix(NA,2*nrow(ti)-1,ncol=3) 
   
-  ct <-  1
+  ct <- 1
   for(i in 1:nrow(ti)){
     if(ti[i,'leftChild'] %in% sn$nodeID ){
       #print(paste('add row' , i, ct))
@@ -46,14 +66,8 @@ plotTree1 <- function(rg,tri,...){
   # el%>% print # nodes need to be numbered 1,2,3.. no 0 and no gaps allowed
   # splitvarName has to be tied to the numbering of nodes
   
-  ## current node numbering : in sn$nodeID
-  #for(i in 1:length(sn$nodeID)){
-  #  el[el==sn[i,'nodeID']] <- i
-  #  sn[i,'newNodeID'] <- i
-  #}
-  
-  done <-  matrix(0,nrow=nrow(el),ncol=2) # same layout as edgelist el
-  ct <- 1 # new IDs will be sequential, starting at 1
+  done <-  matrix(0,nrow=nrow(el),ncol=2) # same layout as edgelist el , initialised: nothing done yet
+  ct <- 1 # will be the new sequential IDs, starting at 1
   for(i in sn$nodeID){
     act <-  (!done & el[,1:2]==i) # act on positions in el where nothing has been done before and entries = i
     el[act] <- ct # change the nodeID from i to ct
@@ -67,7 +81,7 @@ plotTree1 <- function(rg,tri,...){
   
   graph_from_edgelist(el[,1:2]) -> g1
 
-  lo <-  layout_as_tree(g1,root=1)
+  lo <- layout_as_tree(g1,root=1)
   
   #print(sn)
   #print(el) # el has a row less than sn (nodes vs edges)
@@ -75,26 +89,28 @@ plotTree1 <- function(rg,tri,...){
   
   # g1 %>% plot(layout=lo, main=tri, mode='out') # simpler plot
   g1 %>% plot(layout=lo
-            #, vertex.label.cex=0.7
+            , vertex.label.cex=1.2
+           # , vertex.label=sn$splitvarID
             , vertex.label=sn$splitvarName # needs to be in sync with edge list el
+           #, vertex.color='red'
             , edge.label= ifelse(el[,3] == 0,'R','L') 
-          #  , edge.label.dist = 5 # not working , would like to put the label above the edge
+           # , edge.label.dist = 5 # not working , would like to put the label above the edge
            # , edge.label.cex=0.7
-            #, vertex.color=NA
-            #, vertex.frame.color=NA
-            #, vertex.size=50
+           # , vertex.color=NA
+           # , vertex.frame.color=NA
+           # , vertex.size=50
             , vertex.shape='none'
-            #, vertex.label.dist=0.5 # dist from the center of the vertex
+           # , vertex.label.dist=0.5 # dist from the center of the vertex
             , edge.color ='red'
             , edge.arrow.size=.4
             , rescale = T
-          # , ylim=0.5*range(lo[,2])
-          # ,xlim=0.5*range(lo[,1])
-          , asp = 0
+           # , ylim=0.5*range(lo[,2])
+           # ,xlim=0.5*range(lo[,1])
+           , asp = 0
           , ...
           )
   
-  return('d0.info'=d0.info)
+  return('d0.info'=list(d0.info.name, d0.info.ID))
 }
 
 plotTreeFb <-  function(rg,tri,...){

@@ -68,18 +68,28 @@ createDMd1 <- function(forest, dft){
               type='terminalNodes'
   )$predictions
   
-  A<- array(0, dim=c(nObs, nObs, nT))
+  A <- array(0, dim=c(nObs, nObs, nT)) # 0's are needed on the diagonal
   
+  #docTN <- list() # documenting the terminal nodes and their observations
   for(tri in 1:nT){
     # loop through IDs of terminal nodes
     for(tn in tNodes(forest,tri)){
-      sameTN<-which(pp[,tri]==tn) # observations mapped to this terminal node ID
+      sameTN <- which(pp[,tri]==tn) # observations mapped to this terminal node ID
+      #docTN[[tn]] <- sameTN
       for(i in sameTN){
-        for(j in sameTN){
-          A[i,j,tri]<-1  # making A[,,tri] a symmetric matrix , since looping over all combinations (i,j) in sameTN x sameTN
+        triangleNodes <- base::intersect(sameTN , 1:i) # don't run through sameTN x sameTN , only through its triangle
+        #print(paste(length(sameTN) , length(triangleNodes)))
+        for(j in triangleNodes){
+          A[i,j,tri]<-1  
+          A[j,i,tri]<-1
         }
+        # old loop , i,j looping over square of sameTN x sameTN
+        #for(j in sameTN){
+        #  A[i,j,tri]<-1  # making A[,,tri] a symmetric matrix , since looping over all combinations (i,j) in sameTN x sameTN
+        #}
       }
     }
+    #E1[[tri]] <<- docTN
   }
   #A[,,1]
   
@@ -87,7 +97,6 @@ createDMd1 <- function(forest, dft){
     B<- A[,,tri1]-A[,,tri2]
     B[upper.tri(B)] %>% abs() %>% sum() # counting how many pairs of obs are treated differently by tri1 and tri2
   } # a function
-  
   return(outer(1:nT,1:nT,Vectorize(d1)) * 2 / (nObs*(nObs-1))) # a matrix , dim  nT , nT
   # divide by n over 2 = divide by n*(n-1)/2 = multiply by 2 / (n*(n-1)) 
   # with n = number of observations nObs , number of rows in data set , here: the training data
@@ -251,3 +260,4 @@ createDM <- function(forest, type, dft=NULL){
       } # end of else : when neither d0 nor d1
     } # end of else : when not d0
   }
+

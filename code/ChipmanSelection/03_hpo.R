@@ -19,62 +19,76 @@ source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predi
 source('code/source/subforest.R') # subforest
 source('code/source/chipman.R') # for calc_chipForest_2 , calc_LL_for_selection
 
-# set test data by name : VA, Swiss or Hung
-data.test.name <-  'Swiss'
-data.test <-  get(data.test.name)
-attr(data.test,'data.test.name') <- data.test.name
 
-# to base the result on more bootstraps
-folder <- 'data/nursery'
-files <- list.files(folder)#[1:2]
-# dir(folder)
-
-cutoff <- seq(0.0, 0.9, by=0.1)
-# setting sizeSF to the number of trees (500)  generates a Chipman forest 
-# that only stops when all trees are represented (at the specified level)
-# cutoff 0 means only trees with dissim 0 represent each other. Happens only for d0.
-sizeSF <- rep(500,length(cutoff))
-
-parameter <-  data.frame(cbind(cutoff, sizeSF))
-# parameter$cutoff
-# parameter <- list('sizeSF' = 5
-#            , 'cutoff'=0.5) # old
-collector.p <-  list()
-ct.p <-  1
-
-for(p in 1:nrow(parameter)){
-  print(paste('parameter ', p ,'at', Sys.time()))
-
-  collector.f <-  list()
-  ct.f <-  1 # counter for the above collector 
-  for(file in files){
-    # run loops over doc loaded from file
-    load(paste(folder,file, sep='/')) # loads doc
-    #print( parameter[p,])
-    collector.f[[ct.f]] <- calc_LL_for_selection(doc , parameter[p,])
-    ct.f <-  ct.f+1
+hpo <- function(method, parameter, data){
+  
+  data.test <<- get(data) # data should be a variable name , character string 
+  # get data from parent environment
+  
+  # to base the result on more bootstraps
+  folder <- 'data/nursery02'
+  files <- list.files(folder)[1:2]
+  # dir(folder)
+  
+  collector.p <-  list()
+  ct.p <-  1
+  
+  for(p in 1:nrow(parameter)){
+    print(paste('parameter ', p ,'at', Sys.time()))
+    
+    collector.f <-  list()
+    ct.f <-  1 # counter for the above collector 
+    for(file in files){
+      # run loops over doc loaded from file
+      load(paste(folder,file, sep='/')) # loads doc
+      #print( parameter[p,])
+      collector.f[[ct.f]] <- calc_LL_for_selection(method=method
+                                                   , doc=doc 
+                                                   , parameter=parameter[p,])
+      ct.f <-  ct.f+1
+    }
+    
+    apply(bind_rows(collector.f),2,mean) %>% # remove NA before taking the mean??
+      c(parameter[p,]) %>% 
+      unlist -> 
+      collector.p[[ct.p]]
+    
+    ct.p <- ct.p+1
   }
-  
-  apply(bind_rows(collector.f),2,mean) %>% # remove NA before taking the mean??
-    c(parameter[p,]) %>% 
-    unlist -> 
-    collector.p[[ct.p]]
-  
-  ct.p <- ct.p+1
+  return(list('et'=data.frame(bind_rows(collector.p))
+              , 'call'= list('method'=method, 'parameter'=parameter, 'data'=data)))
 }
 
-et03 <- data.frame(bind_rows(collector.p))
+# chipman 1 simplified does not need a parameter. 
+# Multiple cutoff parameters just repeat the same code and give the same results.
+cutoff <- seq(0, 0.9, by=0.1)
+# setting sizeSF to the number of trees (500)  generates a Chipman forest 
+# that only stops when all trees are represented (at the specified level)
+# cutoff 0 means only trees with minimal dissim represent each other. 
+# Happens for some trees under d0, happens for exactly 2 trees (0r 3,4?? few!) under d1,d2,sb
+sizeSF <- rep(50,length(cutoff))
+parameter <-  data.frame(cbind(cutoff, sizeSF))
+
+# needed for Chipman 1 , simplified or not
+# parameter$selection <- rep('best',length(cutoff))
+
+res1 <- hpo(method='chip2', parameter, data='Swiss') # result
+
+et03 <- res1$et
 
 et03 %>% t %>% xtable -> xtb.ch2
 digits(xtb.ch2) <-  4
 xtb.ch2
 
-# save(et03 , file='data/chipman/hyperparameter_cutoff_5trees*.rda')
+save(et03 , file='data/chipman/hpo_chip2_stopped_50*.rda')
 # save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
-# makes no sense. et03 is already aggregated, averaged over...
-#et03 %>% apply(2,function(x) c(mean(x),sd(x))) %>% t
+# if neccessary , for chipman 1 with selection as character -> all columns are character
+# exclude selection column in names(et03)
+for(nam in names(et03)){
+  et03[,nam] <- as.numeric(et03[,nam])
+}
 
 {
   et03.s <-  et03 %>% select(tidyr::starts_with('LL.'))
@@ -86,7 +100,7 @@ xtb.ch2
   plot(cutoff
      , et03.s[,1]
      , type='l'
-     , main=paste('logloss for cutoff parameters\n(', 50*length(files) ,' simulations)' , sep='')
+     #, main=paste('logloss for cutoff parameters\n(', 50*length(files) ,' simulations)' , sep='')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='mean logloss')
@@ -188,8 +202,9 @@ plot(et03$cutoff
      , ylim=ylim 
      , xlab='cutoff parameter' 
      , ylab='logloss'
-     , main='logloss for Meiner forest stopped at 5 trees')
+     , main='logloss for Chipman forest stopped at 5 trees')
 points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
 points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
 points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
 legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+
