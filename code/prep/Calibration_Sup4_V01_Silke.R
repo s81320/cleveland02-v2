@@ -1,7 +1,8 @@
 #Supplementary Material 4 for "A comprehensive comparison of approaches for the calibration of probability machines"
 #by Francisco M. Ojeda *, Yao Hu *, Alexandre Thiery, Stefan Blankenberg,Christian Weimar, Matthias Schmid, and Andreas Ziegler
 
-rm(list=ls())
+# removed , Silke
+# rm(list=ls())
 
 # Attaching R packages ---------------------------------------------------------
 library(dplyr)
@@ -71,6 +72,53 @@ read_process_df <- function(url) {
                  "NumbMajorVessels", "Thal", "CAD")
   df <- read.table(url, header = FALSE, sep = ",", col.names = col.names, 
                    na.strings = "?") %>% 
+    mutate(Chestpaintype = recode(as.factor(Chestpaintype), 
+                                  "1" = "Typical angina", 
+                                  "2" = "Atypical angina", 
+                                  "3" = "Non-anginal pain", 
+                                  "4" = "Asymptomatic") ) %>% 
+    mutate(HighFastBloodSugar = recode(as.factor(HighFastBloodSugar), 
+                                       "1" = "Yes", "0" = "No") ) %>% 
+    mutate(RestingECG = recode(as.factor(RestingECG), "0" = "Normal", 
+                               "1" = "ST-T wave abnorm", 
+                               "2" = "Leftvent hypertrophy") ) %>% 
+    mutate(ExInducedAngina = recode(as.factor(ExInducedAngina), 
+                                    "1" = "Yes", "0" = "No") ) %>% 
+    mutate(SlopePeakST = recode(as.factor(SlopePeakST), 
+                                "1" = "Upsloping", "2" = "Flat", 
+                                "3" = "Downsloping") ) %>% 
+    mutate(Thal = recode(as.factor(Thal), "6" = "Fixed defect", "3" = "Normal", 
+                         "7" = "Reversable defect") ) %>% 
+    mutate(NumbMajorVessels = as.numeric(NumbMajorVessels) ) %>%
+    mutate(Sex = recode(as.factor(Sex), "1" = "Male", "0" = "Female") ) %>%
+    mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) )) 
+  # Variables with too many missing values
+  df <- subset(df, select=-c(SlopePeakST, Thal, NumbMajorVessels))
+  # Impute missing value
+  continuousVars <- c (1, 4, 5, 8, 10)
+  df<-impCon(df, continuousVars)
+  categoricalVars <- c(2, 3, 6, 7, 9)
+  df <- impCat(df, categoricalVars)
+  # creating, recoding and reordering variables
+  df <- renameVars(df)
+  # Adding factor version of CAD
+  df[["CAD_fac"]] <- factor(df[["CAD"]])
+  df
+}
+
+# slight alteration , Silke : pass downloaded data directly
+process_df <- function(df0) {
+  col.names <- c("Age", "Sex", "Chestpaintype", "RestingBP", "Cholesterol",
+                 "HighFastBloodSugar", "RestingECG", "MaxHeartRate", 
+                 "ExInducedAngina", "STDepression", "SlopePeakST", 
+                 "NumbMajorVessels", "Thal", "CAD")
+  colnames(df0) <-  col.names
+  
+  # df0 instead of this : 
+  # read.table(url, header = FALSE, sep = ",", col.names = col.names, 
+  #           na.strings = "?")
+  
+  df <-  df0 %>% 
     mutate(Chestpaintype = recode(as.factor(Chestpaintype), 
                                   "1" = "Typical angina", 
                                   "2" = "Atypical angina", 

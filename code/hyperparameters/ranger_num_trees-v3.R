@@ -31,13 +31,13 @@ if(with_simulation){
 }
 
 #data.test <-  VA
-data.test <- Hung
+data.test <- Swiss
 
 # nt <- seq(5, 5000, 5)
-nt <- c(5 ,10,50, 500, 5000)
+nt <- c(5 ,10, 50, 500)
 length(nt)
 
-nLoops <-  100
+nLoops <-  1000
 LL <- matrix(0,nLoops, length(nt))
 
 # build forest up , starting with nt[1] trees , ending with max(nt) trees
@@ -86,7 +86,7 @@ LL <-  as.data.frame(LL)
 names(LL) <- nt
 
 boxplot(LL
-        , main=paste('logloss for forests of different sizes\n(trained on simulated Cleveland, tested on Hung)') 
+        , main=paste('logloss for forests of different sizes\n(trained on full Cleveland, tested on Swiss)') 
         , sub=paste('N=',nrow(LL),'(nr of observations per size)')
         , xlab= 'forest size , number of trees in forest'
         , ylab='logloss')

@@ -1,18 +1,12 @@
 # needed in the introduction of d1
 
 
-load('data/nursery/aCopy.rda')
-repair(doc)
 rg <- doc[[1]]$rg
-data.train <- doc[[1]][["bootstapped training data"]]
-# repair:
-names(doc[[1]])[names(doc[[1]])=='bootstapped training data'] <- 'bootstrapped training data'
-rs <-  doc[[1]]$resample
+
 rm(list='E1')
 E1 <- list()
 doc[[1]]$DM$d1 <- createDMd1(rg$forest,  Cleve[unique(rs),])
 doc[[1]]$DM$d1 %>% dim
-
 # E1 is now a list with for each tree a list of terminal nodes (key) and the observations mapped to it (values)
 
 # if we want to check that observations fall to the correct terminal node
@@ -48,7 +42,7 @@ f2 <- function(tri1, tri2, tnode){
 
 # needed in thesis, introduction of d1 dissim
 f2(tri1=1,tri2=1,tnode=10) # test : look in tree 1 for obs that are in tnode 10 of tree 1
-f2(tri1=1, tri2=2,tnode=10)  # tree 2 and observstions from terminal node 10 : how many pairs fall together to the same terminal node in tree 2
+f2(tri1=1, tri2=2,tnode=10)  # tree 2 and observations from terminal node 10 : how many pairs fall together to the same terminal node in tree 2
 
 # more
 lapply(tNodes(rg$forest, 2) , FUN=f2, tri1=2, tri2=2) %>% unlist # how can there be a 0 ?? 0 pairs = 1 obs

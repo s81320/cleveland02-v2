@@ -1,4 +1,4 @@
-#function copied from Calibration_Sup4_V01.R
+#function winsorize copied from Calibration_Sup4_V01.R
 winsorize_probs <- function(x) {
   eps <- .Machine$double.eps
   pmax(pmin(x, 1 - eps), eps)

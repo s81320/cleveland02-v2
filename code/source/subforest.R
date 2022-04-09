@@ -1,4 +1,6 @@
 
+print(paste('sourcing s u b f o r e s t .R : functions subforest(forest , trindx) , forestHull(forest) and tNodes(forest , tri)'))
+
 # constructor
 subforest<-function(forest,trindx){
   sf<- forest # copy? point? # keep levels, class.values, treetype, indep.variable.names

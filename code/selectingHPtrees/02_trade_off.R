@@ -1,4 +1,14 @@
 # 6.3.2022
+# code / selecting HP trees / 02_trade_off.R
+# works on simulations
+
+# the trade off for size and logloss
+
+# used for what I sent Ulrike , 31.3.2022
+
+# results for data sets Cleve, Swiss , Hung saved in data/method_hp_1000sim_logloss.rda
+# load('data/method_hp_1000sim_logloss.rda') # loads hp
+
 # When selecting high performing trees small forests should have an advantage over regular small forests.
 # can we visualize that?
 
@@ -7,7 +17,7 @@
 # plot their difference , plot the mean over simulations.
 
 # result: the difference is (in the mean) monotonously decreasing, very steep in the beginning and then very flat.
-# we could plot this difference against the total logloss, maybe there would be a biggest relative difference somewhere in the middle
+# there is an optimal number of trees  where logloss has a local minimum (Swiss as test data)
 
 rm(list=ls())
 
@@ -25,23 +35,29 @@ source('code/source/chipman.R')
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Swiss'
+data.test.name <-  'Hung'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
+
+# trees cannot handle missing data :-(
+#if(data.test.name=='Swiss'){
+#  data.test$Cholesterol <- NA
+#}
+
+stepSize <-  5
 
 calc_smthn <- function(doc){
   
   nBs <- length(doc)
   #nBs <- 5
-  
-  stepSize <-  5
+
   # evalT <- array(NA,dim=c(nBs,2 , 50)) # table of evaluations , for step size 10
   evalT <- array(NA,dim=c(nBs,2 , 500/stepSize)) 
   
   ct <- 1
   for(i in 1:nBs){
     #print(paste(i/nBs , Sys.time()))
-    if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
+    #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
     
     forest<-doc[[i]]$rg$forest
     
@@ -49,21 +65,6 @@ calc_smthn <- function(doc){
 
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
-    
-    #pp <- predict(forest 
-    #          , data=data.set.val 
-    #          , predict.all = T)$predictions[,2,]
-    #pp <- simplify2array(pp, higher=FALSE)
-
-    # is this the same as Vectorize ??!!
-    #lapply(1:forest$num.trees
-    #   , function(k){ 
-    #     pp[,k] %>% 
-    #       calcLogloss2( df=data.set.val ) %>% 
-    #       unlist
-    #     # unlist(calcLogloss2(pp=pp[,k] , df=data.set.val ) ) 
-    #   }) %>% 
-    #unlist -> LL
     
     #hpst <- order(LL)[1:sizeSF] # high performing single trees for second basecase
     oLL <-  calc_oLL(forest, data.set.val)
@@ -84,25 +85,107 @@ calc_smthn <- function(doc){
 
 # to base the result on more bootstraps
 folder <- 'data/nursery'
-files <- list.files(folder)[1:1]
+files <- list.files(folder)#[1:2]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
 
 for(file in files){
   # run loops over doc loaded from file
+  print(paste(ct / length(files), Sys.time()))
   load(paste(folder,file, sep='/'))
   collector[[ct]] <- calc_smthn(doc)
   ct <-  ct+1
 }
-# et <- bind_rows(collector)
+
+ct <- 1
+c1 <- collector[[1]] 
+m <-  length(files)
+r <- dim(c1)[1]
+et <- array(0, dim=dim(c1)*c(m,1,1))
+dim(et)
+et[1:r,,] <- c1
+for(i in 2:m){
+  et[ct*r+(1:r),,] <- collector[[i]]
+  ct <- ct+1
+}
+# et <- bind_rows(collector) # not working vor 3-dim array
+#et <-  collector[[1]]
 
 (collector[[1]][1,1,]-collector[[1]][1,2,]) %>% plot()
 
-et <-  collector[[1]]
+# mean values over simulations
+# works best on Cleveland and Swiss, not so much on Hung and VA
+m1 <-  apply(et[,1,],2,mean)
+m2 <-  apply(et[,2,],2,mean)
+par(mar=c(4,4,3,0)+0.2)
+plot(stepSize*(1:length(et[1,1,]))
+     , m1
+     , type='l'
+     , main='Trees grown on Cleveland simulations\ntree performance: logloss on Cleveland OOB'
+     #, ylim=range(c(m1,m2))
+     , ylim=c(0.44,0.67)
+     , xlab='number of trees in forest' 
+     , ylab=paste('logloss (mean over simulations) on', data.test.name))
+lines(stepSize*(1:length(et[1,1,])), m2 , col='blue')
+wm <-  which.min(m2)
+points(stepSize*wm, m2[wm], pch=4 , col='blue')
+legend('topright', 
+       legend=c('regular forest, size increasing','high performing trees first','minimum') , 
+       col=c('black','blue','blue') ,
+       pch = c('-','-','x') ,
+       cex =0.8)
+
+print(paste('best small forest, its size and logloss:', stepSize*wm, m2[wm]))
+
+# plot the difference between regular small size and small forest of high performers
+par(mar=c(4,4,3,0)+0.2)
+plot(stepSize*(1:length(et[1,1,]))
+     , m1 - m2 # overshoot
+     , type='l'
+     #, main='Trees grown on Cleveland simulations\ntree performance: logloss on Cleveland OOB'
+     #, ylim=range(m2-m1)
+     , xlab='number of trees in forest' 
+     , ylab=paste('difference in logloss on', data.test.name))
+
+et <-  hp$logloss$'Swiss'
+# difference to the default forest of 500 trees
+par(mar=c(4,4,3,0)+0.2)
+y <-  m2 - m2[length(m2)]
+plot(stepSize*(1:length(et[1,1,]))
+#plot(stepSize*(20:40)
+     , y
+     #, y[20:40]
+     , type='l'
+     , xlab='number of trees in forest' 
+     , ylab='logloss overshoot'
+     , main=paste('logloss overshoot (cf to default forest of 500 trees)\non', data.test.name))
+wm <-  which.min(y)
+points(stepSize*wm, y[wm], pch=4)
+abline(h=0 , col='grey')
+
+print(paste('best small forest, its size and logloss overshoot (compare to default forest of 500 trees):', stepSize*wm, y[wm]))
+
+##### test it on hungary #####
+
+et <-  hp$logloss$'Hung'
+dim(et)
+
+(et[,2,20]-et[,2,100]) %>% mean
+(et[,2,20]-et[,2,100]) %>% 
+  hist(main='forest of 100 high performing trees \nmostly better than default forest of 500 trees'
+       , breaks=20
+       , xlab='logloss overshoot , ie logloss selected forest - logloss default forest')
+
+
+(et[,2,20]-et[,2,100]) %>% t.test(alternative='l')
+
+###### old code #######
+
+et1 <-  collector[[1]]
 k <- 3
-plot(2:50, et[k,1,2:50] , type='l' , ylim=range(et[k,,2:50]))
-points(2:50, et[k,2,2:50] , type='l', col='blue')
+plot(2:50, et1[k,1,2:50] , type='l' , ylim=range(et1[k,,2:50]))
+points(2:50, et1[k,2,2:50] , type='l', col='blue')
 legend('topright', 
        legend=c('regular forest, size increasing','high performing trees first') , 
        col=c('black','blue') ,
@@ -111,20 +194,47 @@ legend('topright',
 
 # in et : dimensions : simulation x logloss for regular small forest or subforest of high performers x number of trees in forest
 # this is what we want for a fixed simulation
-et[3,,] %>% (function(A2dim) A2dim[1,] - A2dim[2,] ) %>% plot(type='b')
+et1[3,,] %>% (function(A2dim) A2dim[1,] - A2dim[2,] ) %>% plot(type='b')
 
 A <-  list()
 # A will contain vectors of length 500/stepSize, i.e. for stepSize 5 : length is 100
 #  each list in A is the difference in logloss when selecting sequential subforests 1:k vs best trees oLL[1:k]
 for(i in 1:20){
-  et <-  collector[[i]]
+  et1 <-  collector[[i]]
   # we fix the simulation, 1.st dimension
-  apply(et,1,(function(A2dim) A2dim[1,] - A2dim[2,] )) %>% # each column is a result of apply, with a fixed simulation
+  apply(et1,1,(function(A2dim) A2dim[1,] - A2dim[2,] )) %>% # each column is a result of apply, with a fixed simulation
     apply(1,mean) -> A[[i]] # take mean over columns, always with a fixed row , which is a forest size
-  plot(A[[i]], type='l', main=i)
+  plot(x=stepSize*(1:length(A[[i]])) 
+       , y= A[[i]]
+       , type='l'
+       , main=i)
 }
 X <-  simplify2array(A)
 apply(X,1,mean) %>% # taking mean over the packages of 50 simulations
-  plot(type='p') 
+  plot(x=stepSize*1:length(.)
+       , y=. 
+       , xlab='number of trees on forest'
+       , ylab='logloss difference (regular - high performers)'
+       , type='l') 
 X[1:10]
+
+# experimental
+for(i in 1:20){
+  et1 <-  collector[[i]]
+  # we fix the simulation, 1.st dimension
+  apply(et1[,2,]-et1[,2,100],1,min) %>% mean # the best forest of high performing trees
+  apply(et1[,2,]-et1[,1,],1,min) %>% mean # the largest difference b/w regular forests and forests of high performing best forest of high performing trees , over all sizes -> probably the smallest size: 5 trees
+  (et1[,2,20]-et1[,2,100]) %>% mean # overshoot at stepSize*20 = 100 high performing trees
+  (et1[,2,20]-et1[,2,100]) %>% hist(breaks=20)
+  # sd over 50 simulations for forests of high performers of the same size (100 trees)
+  sd(et1[,2,20]) # 0.022 : this is small! smaller than for the default forest... is it the same setting?
+  sd(et1[,1,100]) # 0.026 as sd for the forests of size 500
+  min(et1[20,2,] - et1[20,2,100])
+  plot(x=stepSize*(1:length(A[[i]])) 
+       , y= A[[i]]
+       , type='l'
+       , main=i)
+}
+
+
 

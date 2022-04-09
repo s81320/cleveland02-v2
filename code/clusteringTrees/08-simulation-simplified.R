@@ -1,3 +1,4 @@
+# one dissimilarity , 1 final size , 1 number of clusters
 
 rm(list=ls())
 
@@ -13,12 +14,12 @@ source('code/source/subforest.R') # subforest
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Hung'
+data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-num.clusters <-  20
-sizeSF <- 20
+num.clusters <-  25
+sizeSF <- 50
 treesSelected <- vector('list',num.clusters)
 
 calc_LL_for_selection <- function(doc, sizeSF, num.clusters){
@@ -42,7 +43,7 @@ calc_LL_for_selection <- function(doc, sizeSF, num.clusters){
     metric <- 'd2'
     dm <-  DM[[metric]]
 
-    data.train <- doc[[i]]$`bootstapped training data`
+    data.train <- doc[[i]]$`bootstrapped training data` # typo : r missing in bootst_R_apped
 
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
@@ -100,10 +101,11 @@ calc_LL_for_selection <- function(doc, sizeSF, num.clusters){
       LL.cluster <-  LL[S1] # logloss on validation set (OOB of simulation)
       
       # select trees with highest rank(LL.cluster)
-      # print(paste('select ', howMany,' from cluster ', nClus))
-      # which(rank(LL.cluster)<=howMany) %>% S1[.] %>% print
+      print(paste('select ', howMany,' from cluster ', nClus))
+      which(rank(LL.cluster)<=howMany) %>% S1[.] %>% print
 
       treesSelected[[nClus]] <- which(rank(LL.cluster)<=howMany) %>% S1[.]
+      print(pase('selected : ', length(treesSelected[[nClus]])))
       }
 
   #print('trees selected')
@@ -129,8 +131,8 @@ calc_LL_for_selection <- function(doc, sizeSF, num.clusters){
 }
 
 # to base the result on more bootstraps
-folder <- 'data/nursery'
-files <- list.files(folder)[1:5]
+folder <- 'data/nursery02'
+files <- list.files(folder)[1:1]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -138,7 +140,9 @@ ct <-  1 # counter for the above collector
 for(file in files){
   # run loops over doc loaded from file
   load(paste(folder,file, sep='/'))
-  collector[[ct]] <- calc_LL_for_selection(doc , sizeSF , num.clusters)
+  collector[[ct]] <- calc_LL_for_selection(doc=doc 
+                                           ,sizeSF=sizeSF 
+                                           , num.clusters=num.clusters)
   ct <-  ct+1
 }
 boxplot(collector[[1]][,3:6])

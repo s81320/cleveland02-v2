@@ -210,7 +210,8 @@ calc_chipForest_2 <- function(dm , forest, oLL, parameter){
               , length(chipForest)))
 }
 
-calc_meinForest <- function(dm , forest, LL, parameter){
+
+grow_meinForest<- function(dm , LL, parameter){
   #' calculates the Meiner forest
   #' 
   #' @param parameter is a list with items cutoff and sizeSF 
@@ -245,13 +246,13 @@ calc_meinForest <- function(dm , forest, LL, parameter){
         # if this is empty , add trindex!
         if(length(closeCandTrees)==0){
           meinForest <- c(meinForest,trindx) # if nothing better can be found : add trindx
-          }else{
-            closeCandTrees %>%
+        }else{
+          closeCandTrees %>%
             LL[.] %>%
             which.min %>%
             closeCandTrees[.] %>%
             c(meinForest) -> meinForest
-          }
+        }
         #print(I)
         #print(round(oLL[meinForest],4)[1:10])
         #print(round(oLL[order(oLL[-meinForest])],4)[1:10])
@@ -261,25 +262,42 @@ calc_meinForest <- function(dm , forest, LL, parameter){
         # chipForest <- c(chipForest, trindx)
       }
     }
-  } # for exits with j the first index after all trees have been collected
+  } # for exits with I the first index after all trees have been collected
+  # should be 500 for sizeSF=500 (unstopped Meiner) but may be smaller for sizeSF <500 (stopped Meiner)
+  parameter$represented <- I
+  return(list('forest'=meinForest, 'parameter'=parameter))
+  }
+
+eval_meinForest <- function(dm , forest, LL, parameter){
+  #' calls function to calculate the Meiner forest and evaluates it
+  
+  mf <-  grow_meinForest(dm , LL, parameter)
+  
+  meinForest <-  mf$forest
+  I <- mf$parameter$represented
+  
   return(list(calcLogloss( subforest(forest, meinForest ), data.test)
               , I
-              , length(meinForest)))
+              , length(meinForest))) 
 }
 
+calc_meinForest <- function(dm , forest, LL, parameter){
+  #' calls function to calculate the Meiner forest and evaluates it
 
+  return(eval_meinForest(dm , forest, LL, parameter)) 
+  }
 
 calc_LL <- function(forest , data){
-  #' calculate ordered logloss for trees in forest,
-  #' logloss evaluated on predictions on on data
+  #' calculate logloss for trees in forest,
+  #' logloss evaluated on predictions on data
   
   pp <- predict(forest 
                 , data=data 
                 , predict.all = T)$predictions[,2,]
   
   lapply(1:forest$num.trees
-         , function(k){ 
-           pp[,k] %>% 
+         , function(t){ 
+           pp[,t] %>% 
              calcLogloss2( df=data ) %>% 
              unlist
          }) %>% 
@@ -334,9 +352,9 @@ calc_LL_for_selection <- function(method, doc, parameter){
     #print(paste(i/nBs , Sys.time()))
     #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
     
-    DM <-  doc[[i]]$DM
+    DM <- doc[[i]]$DM
     
-    forest<-doc[[i]]$rg$forest
+    forest <- doc[[i]]$rg$forest
     
     data.train <- doc[[i]]$`bootstapped training data`
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
@@ -357,7 +375,7 @@ calc_LL_for_selection <- function(method, doc, parameter){
     # parameter = list('cutoff'=0.4, 'sizeSF'=500)
     # then this list is repeated for each metric to become of the required format
     
-    if(!is.null(parameter)){ # no parameter if we use Chipman 1 enforce
+    if(!is.null(parameter)){ 
     if(all(c('cutoff','sizeSF') %in% names(parameter))){
       P1 <-  list()
       for(metric in metrices){

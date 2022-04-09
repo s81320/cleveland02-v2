@@ -16,7 +16,7 @@
 # we have to compare them as full binary trees
 # The ranger forest has a shorter notation that does not allow for direct comparison
 # trees will be of different depths since we removed the max.depth=5 argument.
-# Don't know yet haw / where this is relevant...
+# Don't know yet how / where this is relevant...
 
 # needed for d1
 source("code/source/subforest.R") # loads function tNodes to get terminal nodes of a tree
@@ -119,6 +119,8 @@ createDMd2 <- function(forest, dft){
   #  assertthat::assert_that(length(dim(pp))==2, msg = paste('classification tree should return 2-dim predictions. got' , length(dim(pp))))
     # print('Classification tree, we got class predictions. do nothing')
     f1<-function(vec,vec2) mean(abs(vec-vec2))
+    # f1<-function(vec,vec2) mean((vec-vec2)^2) # mse as in Banerjee definition
+    # f1<-function(vec,vec2) mean(log(vec/vec2)) # needs windsor-ised probabilities, no zero!
   }else{
     if(forest$treetype=='Probability estimation'){
       pp <- pp[,2,] # only keep the probability for CAD==Yes
@@ -228,6 +230,8 @@ createDMsb <- function(forest){
     length(which(tri1!=tri2)) # do no scaling. If scaling has to be done it should be wrt the number of positions in the full binary tree that are non null when adding the 2 full binary trees 
     # removed the division 26.10.2021 (in Chipman paper there is no scaling factor)
     # possible scaling : length(which((tri1+tri2)!=0))
+    
+    # what is faster : length(which(tri1!=tri2)) or length(which((tri1-tri2)!= 0))?
   }
   outer(A,A,Vectorize(sb)) %>% 
     as.matrix -> 

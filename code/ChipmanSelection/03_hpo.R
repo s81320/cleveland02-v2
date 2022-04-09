@@ -12,8 +12,14 @@ library(dplyr)
 library(ranger)
 library(cluster)
 library(diptest)
+library(xtable)
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
+
+# corrected Swiss
+corSwiss <- Swiss[,1:11]
+corSwiss$STDepression <-  corSwiss$STDepression - min(corSwiss$STDepression)
+range(corSwiss$STDepression)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
@@ -24,6 +30,8 @@ hpo <- function(method, parameter, data){
   
   data.test <<- get(data) # data should be a variable name , character string 
   # get data from parent environment
+  # is not passed to calc_LL_for_selection
+  # is accessed from within the function (no good programming style!!)
   
   # to base the result on more bootstraps
   folder <- 'data/nursery02'
@@ -56,9 +64,15 @@ hpo <- function(method, parameter, data){
     ct.p <- ct.p+1
   }
   return(list('et'=data.frame(bind_rows(collector.p))
-              , 'call'= list('method'=method, 'parameter'=parameter, 'data'=data)))
+              , 'call'= list('method'=method, 'parameter'=parameter, 'data'=data)
+              , 'simulations'=files)
+         )
 }
 
+method='meiner'
+
+#### build parameter
+####################
 # chipman 1 simplified does not need a parameter. 
 # Multiple cutoff parameters just repeat the same code and give the same results.
 cutoff <- seq(0, 0.9, by=0.1)
@@ -66,23 +80,29 @@ cutoff <- seq(0, 0.9, by=0.1)
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
 # Happens for some trees under d0, happens for exactly 2 trees (0r 3,4?? few!) under d1,d2,sb
-sizeSF <- rep(50,length(cutoff))
+sizeSF <- rep(500,length(cutoff))
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 
-# needed for Chipman 1 , simplified or not
-# parameter$selection <- rep('best',length(cutoff))
+if(method %in% c('chip1','chip1_simplified')){
+  parameter$selection <- rep('best',length(cutoff))
+}
 
-res1 <- hpo(method='chip2', parameter, data='Swiss') # result
+#### call function hpo
+######################
+res1 <- hpo(method=method
+            , parameter=parameter
+            , data='corSwiss') # result
 
 et03 <- res1$et
+files <- res1$simulations
+
+#save(et03 , file='data/chipman/hpo_chip2_stopped_50*.rda')
+# save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
+# load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
 et03 %>% t %>% xtable -> xtb.ch2
 digits(xtb.ch2) <-  4
 xtb.ch2
-
-save(et03 , file='data/chipman/hpo_chip2_stopped_50*.rda')
-# save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
-# load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
 # if neccessary , for chipman 1 with selection as character -> all columns are character
 # exclude selection column in names(et03)
@@ -100,7 +120,7 @@ for(nam in names(et03)){
   plot(cutoff
      , et03.s[,1]
      , type='l'
-     #, main=paste('logloss for cutoff parameters\n(', 50*length(files) ,' simulations)' , sep='')
+     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='mean logloss')
@@ -122,7 +142,7 @@ ylim <- range(et03.s)
 plot(cutoff
      , et03.s[,1]
      , type='b'
-     , main=paste('mean number of trees in selection process\n(',50*length(files),' simulations, ', sizeSF[[1]], ' trees)', sep='')
+     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='trees oredered by OOB performance')
@@ -142,6 +162,7 @@ legend( 'topleft'
        , cex=0.8)
 
 # plot for sizes over parameter
+metrices <- c('d0','d1','d2','sb')
 {
   par(mar=c(4,4,3,1)+0.2)
   et03.s <-  et03 %>% select(tidyr::starts_with('size.'))
@@ -152,7 +173,7 @@ legend( 'topleft'
   plot(cutoff
      , et03.s[,1]
      , type='l'
-     , main=paste('size of Chipman forests\n(', 50*length(files) , ' simulations)', sep='')
+     , main=paste('Chipman forests \n(', res1$call$method , ', ', 50*length(files) , ' simulations)')
      , ylim=ylim
      , xlab='cutoff parameter (quantile of dissimilarities)'
      , ylab='mean size')
@@ -175,13 +196,13 @@ legend( 'topleft'
 # for selected metric : size and logloss in one plot
 {
   par(mar=c(4,4,3,4)+0.2)
-  metric <- 'd1'
+  metric <- 'd2'
   et03 %>% select(cutoff , ends_with(metric)) -> etA
-  x <-  etA$cutoff
-  y <-  etA %>% select(starts_with('size')) %>% unlist
-  z <-  etA %>% select(starts_with('LL')) %>% unlist
+  x <- etA$cutoff
+  y <- etA %>% select(starts_with('size')) %>% unlist
+  z <- etA %>% select(starts_with('LL')) %>% unlist
   plot(y~x 
-     , main=paste('tradeoff for size and success in Chipman 2 forests\n(dissim',metric, ', mean values for ', 50*length(files) , ' simulations)')
+     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
      , type='l' 
      , ylab='size: number of trees in Chipman forest' 
      , xlab='parameter')
@@ -202,9 +223,27 @@ plot(et03$cutoff
      , ylim=ylim 
      , xlab='cutoff parameter' 
      , ylab='logloss'
-     , main='logloss for Chipman forest stopped at 5 trees')
+     , main=paste('logloss for Chipman forest', res1$call$method , mean(res1$call$parameter$sizeSF) , sep=' , ')
+)
 points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
 points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
 points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
 legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+
+# zoom in
+par(mar=c(4,4,2,1)+0.1)
+ylim <-  range(et03[1:8,] %>% select(starts_with('LL')))
+plot(et03$cutoff[1:8]
+     , et03$LL.test.chip.d0[1:8]
+     , type='l'
+     , ylim=ylim 
+     , xlab='cutoff parameter' 
+     , ylab='logloss'
+     , main=paste('logloss for Chipman forest', res1$call$method , mean(res1$call$parameter$sizeSF) , res1$call$data , sep=' , ')
+)
+points(et03$cutoff[1:8], et03$LL.test.chip.d1[1:8], type='l', col=2)
+points(et03$cutoff[1:8], et03$LL.test.chip.d2[1:8], type='l', col=3)
+points(et03$cutoff[1:8], et03$LL.test.chip.sb[1:8], type='l', col=4)
+legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+
 

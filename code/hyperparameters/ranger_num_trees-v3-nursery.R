@@ -71,9 +71,6 @@ files <- list.files(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
 
-#data.test <- Hung
-#attr(data.test,'data.test.name') <- 'Hung'
-
 data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name

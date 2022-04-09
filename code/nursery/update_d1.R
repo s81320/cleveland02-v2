@@ -5,7 +5,7 @@ source('code/source/distance-matrices.R')
 
 read_folder <- 'data/nursery'
 write_folder <- 'data/nursery02'
-files <- list.files(read_folder)[2:3]
+files <- list.files(read_folder)[9:14]
 
 repair <- function(doc,info){
   for(i in 1:length(doc)){
@@ -24,5 +24,3 @@ for(file in files){
   repair(doc,info)
 }
 
-
-# save doc , info to write_folder

@@ -42,14 +42,13 @@ calc_LL_for_selection <- function(doc, sizeSF){
     data.train <- doc[[i]]$`bootstapped training data`
     forest2 <- ranger(CAD~.
                  , data = data.train 
-                 , num.trees = 500 # 5000
-                 , replace = F # neu nach Absprache mit AZ
+                 , num.trees = 5000 # 5000
+                 , replace = F 
                  , mtry= 3 # default : 3
                  , importance = 'impurity'
-                 , probability = T # this makes it a random forest of type 'Probability Estimation'
+                 , probability = T 
                  , min.node.size = 13 # optimized in A.Z. paper: BiomJ 56, 2014, 
     )$forest
-    
     
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
@@ -57,9 +56,7 @@ calc_LL_for_selection <- function(doc, sizeSF){
     pp <- predict(forest2
               , data=data.set.val 
               , predict.all = T)$predictions[,2,]
-    #pp <- simplify2array(pp, higher=FALSE)
-
-    # is this the same as Vectorize ??!!
+   
     lapply(1:forest2$num.trees
        , function(k){ 
          pp[,k] %>% 

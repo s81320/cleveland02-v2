@@ -12,6 +12,7 @@ impCon<-function (df, conVars){
   }
   return (df)
 }
+
 impCat<-function (df, catVars){
   for (i in catVars){
     naPos <- which(is.na(df[,i]))
@@ -29,6 +30,7 @@ impCat<-function (df, catVars){
   }
   return (df)
 }
+
 renameVars<-function(df){
   df$Sex<-ifelse(df$Sex=='Female',0,1)
   df$cp<-0
@@ -53,8 +55,9 @@ renameVars<-function(df){
 library(tidymodels)
 library(dplyr)
 library(sjmisc)
+
 Cleve.data <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data", header = F, sep = ",") %>% na_if(., "?")
-Cleve.data <- Cleve.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholsterol = V5, HighFastBloodSugar = V6, 
+Cleve.data <- Cleve.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholesterol = V5, HighFastBloodSugar = V6, 
                                     RestingECG = V7, MaxHeartRate = V8, ExInducedAngina = V9, STDepression = V10, SlopePeakST = V11, 
                                     NumbMajorVessels = V12, Thal = V13, CAD = V14) %>% 
   mutate(Chestpaintype = recode(as.factor(Chestpaintype), "1" = "Typical angina", "2" = "Atypical angina", "3" = "Non-anginal pain", 
@@ -66,16 +69,17 @@ Cleve.data <- Cleve.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, Rest
   mutate(Thal = recode(as.factor(Thal), "6.0" = "Fixed defect", "3.0" = "Normal", "7.0" = "Reversable defect") ) %>% 
   mutate(NumbMajorVessels = as.numeric(NumbMajorVessels) ) %>%
   mutate(Sex = recode(as.factor(Sex), "1" = "Male", "0" = "Female") ) %>%
-  mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) )) 
+  mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) ))
+
 Hung.data <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.hungarian.data", header = F, sep = ",") %>% na_if(., "?")
-Hung.data <- Hung.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholsterol = V5, HighFastBloodSugar = V6, 
+Hung.data <- Hung.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholesterol = V5, HighFastBloodSugar = V6, 
                                   RestingECG = V7, MaxHeartRate = V8, ExInducedAngina = V9, STDepression = V10, SlopePeakST = V11, 
                                   NumbMajorVessels = V12, Thal = V13, CAD = V14) %>% 
   mutate(Age = as.numeric(Age)) %>%
   mutate(Chestpaintype = recode(as.factor(Chestpaintype), "1" = "Typical angina", "2" = "Atypical angina", "3" = "Non-anginal pain", 
                                 "4" = "Asymptomatic") ) %>% 
   mutate(RestingBP = as.numeric(RestingBP) ) %>%
-  mutate(Cholsterol = as.numeric(Cholsterol) ) %>%
+  mutate(Cholesterol = as.numeric(Cholesterol) ) %>%
   mutate(HighFastBloodSugar = recode(as.factor(HighFastBloodSugar), "1" = "Yes", "0" = "No") ) %>% 
   mutate(RestingECG = recode(as.factor(RestingECG), "0" = "Normal", "1" = "ST-T wave abnorm", "2" = "Leftvent hypertrophy") ) %>% 
   mutate(MaxHeartRate = as.numeric(MaxHeartRate) ) %>%
@@ -85,15 +89,16 @@ Hung.data <- Hung.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, Restin
   mutate(NumbMajorVessels = as.numeric(NumbMajorVessels) ) %>%
   mutate(Sex = recode(as.factor(Sex), "1" = "Male", "0" = "Female") ) %>%
   mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) )) 
+
 Swiss.data <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.switzerland.data", header = F, sep = ",") %>% na_if(., "?")
-Swiss.data <- Swiss.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholsterol = V5, HighFastBloodSugar = V6, 
+Swiss.data <- Swiss.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholesterol = V5, HighFastBloodSugar = V6, 
                                     RestingECG = V7, MaxHeartRate = V8, ExInducedAngina = V9, STDepression = V10, SlopePeakST = V11, 
                                     NumbMajorVessels = V12, Thal = V13, CAD = V14) %>% 
   mutate(Age = as.numeric(Age)) %>%
   mutate(Chestpaintype = recode(as.factor(Chestpaintype), "1" = "Typical angina", "2" = "Atypical angina", "3" = "Non-anginal pain", 
                                 "4" = "Asymptomatic") ) %>% 
   mutate(RestingBP = as.numeric(RestingBP) ) %>%
-  mutate(Cholsterol = as.numeric(Cholsterol) ) %>%
+  mutate(Cholesterol = as.numeric(Cholesterol) ) %>%
   mutate(HighFastBloodSugar = recode(as.factor(HighFastBloodSugar), "1" = "Yes", "0" = "No") ) %>% 
   mutate(RestingECG = recode(as.factor(RestingECG), "0" = "Normal", "1" = "ST-T wave abnorm", "2" = "Leftvent hypertrophy") ) %>% 
   mutate(MaxHeartRate = as.numeric(MaxHeartRate) ) %>%
@@ -104,15 +109,16 @@ Swiss.data <- Swiss.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, Rest
   mutate(NumbMajorVessels = as.numeric(NumbMajorVessels) ) %>%
   mutate(Sex = recode(as.factor(Sex), "1" = "Male", "0" = "Female") ) %>%
   mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) )) 
+
 VA.data <- read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.va.data", header = F, sep = ",") %>% na_if(., "?")
-VA.data <- VA.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholsterol = V5, HighFastBloodSugar = V6, 
+VA.data <- VA.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP = V4, Cholesterol = V5, HighFastBloodSugar = V6, 
                               RestingECG = V7, MaxHeartRate = V8, ExInducedAngina = V9, STDepression = V10, SlopePeakST = V11, 
                               NumbMajorVessels = V12, Thal = V13, CAD = V14) %>% 
   mutate(Age = as.numeric(Age)) %>%
   mutate(Chestpaintype = recode(as.factor(Chestpaintype), "1" = "Typical angina", "2" = "Atypical angina", "3" = "Non-anginal pain", 
                                 "4" = "Asymptomatic") ) %>% 
   mutate(RestingBP = as.numeric(RestingBP) ) %>%
-  mutate(Cholsterol = as.numeric(Cholsterol) ) %>%
+  mutate(Cholesterol = as.numeric(Cholesterol) ) %>%
   mutate(HighFastBloodSugar = recode(as.factor(HighFastBloodSugar), "1" = "Yes", "0" = "No") ) %>% 
   mutate(RestingECG = recode(as.factor(RestingECG), "0" = "Normal", "1" = "ST-T wave abnorm", "2" = "Leftvent hypertrophy") ) %>% 
   mutate(MaxHeartRate = as.numeric(MaxHeartRate) ) %>%
@@ -122,21 +128,23 @@ VA.data <- VA.data %>% rename(Age = V1, Sex = V2, Chestpaintype = V3, RestingBP 
   mutate(Thal = recode(as.factor(Thal), "6.0" = "Fixed defect", "3.0" = "Normal", "7.0" = "Reversable defect") ) %>% 
   mutate(NumbMajorVessels = as.numeric(NumbMajorVessels) ) %>%
   mutate(Sex = recode(as.factor(Sex), "1" = "Male", "0" = "Female") ) %>%
-  mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) ))  
+  mutate( CAD = as.factor( (case_when( CAD > 0 ~ "Yes", CAD == 0 ~ "No" ) ) )) 
+
 ## Exclude variables with too much missingness
 library(jmv)
 descriptives(Cleve.data, vars=vars('Sex','Chestpaintype','HighFastBloodSugar','RestingECG','ExInducedAngina','SlopePeakST','NumbMajorVessels','Thal'), freq=T)
-descriptives(Cleve.data, vars=vars('Age','RestingBP','Cholsterol','MaxHeartRate','STDepression'))
+descriptives(Cleve.data, vars=vars('Age','RestingBP','Cholesterol','MaxHeartRate','STDepression'))
 descriptives(Hung.data, vars=vars('Sex','Chestpaintype','HighFastBloodSugar','RestingECG','ExInducedAngina','SlopePeakST','NumbMajorVessels','Thal'), freq=T)
-descriptives(Hung.data, vars=vars('Age','RestingBP','Cholsterol','MaxHeartRate','STDepression'))
+descriptives(Hung.data, vars=vars('Age','RestingBP','Cholesterol','MaxHeartRate','STDepression'))
 descriptives(Swiss.data, vars=vars('Sex','Chestpaintype','HighFastBloodSugar','RestingECG','ExInducedAngina','SlopePeakST','NumbMajorVessels','Thal'), freq=T)
-descriptives(Swiss.data, vars=vars('Age','RestingBP','Cholsterol','MaxHeartRate','STDepression'))
+descriptives(Swiss.data, vars=vars('Age','RestingBP','Cholesterol','MaxHeartRate','STDepression'))
 descriptives(VA.data, vars=vars('Sex','Chestpaintype','HighFastBloodSugar','RestingECG','ExInducedAngina','SlopePeakST','NumbMajorVessels','Thal'), freq=T)
-descriptives(VA.data, vars=vars('Age','RestingBP','Cholsterol','MaxHeartRate','STDepression'))
+descriptives(VA.data, vars=vars('Age','RestingBP','Cholesterol','MaxHeartRate','STDepression'))
 Cleve.data<-subset(Cleve.data, select=-c(SlopePeakST, Thal, NumbMajorVessels))
 Hung.data<-subset(Hung.data, select=-c(SlopePeakST, Thal, NumbMajorVessels))
 Swiss.data<-subset(Swiss.data, select=-c(SlopePeakST, Thal, NumbMajorVessels))
 VA.data<-subset(VA.data, select=-c(SlopePeakST, Thal, NumbMajorVessels))
+
 ## Impute missing values
 continuousVars <- c (1,4,5,8,10)
 Cleve.data<-impCon(Cleve.data,continuousVars)
@@ -148,11 +156,13 @@ Cleve.data<-impCat(Cleve.data, categoricalVars)
 Hung.data<-impCat(Hung.data, categoricalVars)
 Swiss.data<-impCat(Swiss.data, categoricalVars)
 VA.data<-impCat(VA.data, categoricalVars)
+
 ## Rename variables
 Cleve<-renameVars(Cleve.data)
 Hung<-renameVars(Hung.data)
 Swiss<-renameVars(Swiss.data)
 VA<-renameVars(VA.data)
+
 ## No variables need to be removed due to high correlation
 cor.cleve <- cor(Cleve, use = "complete.obs", method = "spearman")
 which((cor.cleve> 0.7 | cor.cleve < -0.7) & cor.cleve != 1, arr.ind = TRUE)
