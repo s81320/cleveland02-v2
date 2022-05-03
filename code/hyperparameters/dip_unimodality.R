@@ -2,15 +2,21 @@
 
 rm(list=ls())
 
-load('data/dms_for_a_forest.rda')
-
 #install.packages('diptest')
 library(diptest)
 library(xtable)
 
-calcDip <- function(i) dip(dm[i,-i]) # uses dm from parent environment
+# option A
+#load('data/dms_for_a_forest_500_trees.rda') # loads DM
 
-dm <-  DM[[1]]
+# option B
+load('data/nursery02/nursery02_01.rda') # loads DM with 4 dissimilarity matrices, one for each dissimilarity
+
+names(DM)
+metric <- names(DM)[1] ; metric
+dm <-  DM[[metric]]
+
+calcDip <- function(i) dip(dm[i,-i]) # uses dm from parent environment
 Vectorize(calcDip)(1:100) %>% hist(xlim=c(0,1))
 
 # names(DM)
@@ -31,8 +37,9 @@ for(i in 1:4){
     hist(xlim=c(0,1)
          , main=paste('histogram of dip statistic for',metrices[[i]])
     )
-  min(vdip) %>% print
+  c(min(vdip), mean(vdip),max(vdip)) %>% print
   ecdf(vdip)%>%plot(main=paste('empirical distribution function of dip statistic\non all trees of forest with distances measured in',metrices[[i]]))
+  density(vdip)%>%plot(main=paste('density of dip statistic on all trees of forest\ndissimilarity',metrices[[i]]))
 }
 
 # fair enough, but we also need the p-values of the dip test
@@ -43,23 +50,29 @@ for(i in 1:4){
 # a larger value for the statistic is a vote against the hypothesis.
 # the p-value tells us, when the vote is strong enough to reject the hypothesis (p-value relative to level)
 
-dm <- DM[[2]]
-doc <- data.frame(matrix(0,nrow(dm),2))
+metric <- metrices[2]
+dm <- DM[[metric]]
+doc.dip <- data.frame(matrix(0,nrow(dm),2))
 
 for(i in 1:nrow(dm)){
   # for(i in 1:5){
   #print(i)
   dt <-   dip.test(dm[i,-i])
-  doc[i,] <-  c(dt$statistic, dt$p.value)
+  doc.dip[i,] <-  c(dt$statistic, dt$p.value)
 }
+doc.dip %>% apply(2,function(x) c(min(x), mean(x), max(x))) %>% t
 
-
+table(doc.dip[,2]<0.05)
+min(doc.dip[,2])
+# option A results
+####### reject unimodality:
 # d0 dissim : p-value 0 -> hypothesis can be rejected on any level. Trees fall into natural clusters
+# sb : p-value 0 -> hypothesis can be rejected on any level. Trees fall into natural clusters
 ####### no way to be unimodal
-# d1 : always accept the Hypothesis : really unimodal!
-# d2 : reject the H for 58 , accept the H for 442
-####### it is mulimodal , there are 58 trees that see the mulimodality
-# sb : always accept the H , this forest is really unimodal, cannot be divided
+# d1 : p-values larger than 0.34 (min p-value) always accept the Hypothesis : really unimodal!
+# d2 : p-values larger than 0.17 (min p-value) always accept the Hypothesis : really unimodal!
+
+# It is very clear: either reject on any level, or quite large p-values, 0.17 , 0.34. No fuzzy inbetween at 6%, 7%, or 4.5%
 
 #### visualize ####
 
@@ -82,6 +95,14 @@ mds<-function(D, xylim=FALSE ,main=NULL , col=NULL, pch=NULL){
   
   plot(x, y,  xlim = xlim, ylim=ylim , main=main, col=col, pch=pch)
   #text(x, y, pos = 4, labels =1:nrow(D))
+  idx.min <- which.min(apply(DM[[nm]],2,sum))
+  plot(x=x[c(1:3,idx.min)], 
+       y=y[c(1:3,idx.min)],  
+       xlim = xlim, 
+       ylim=ylim , 
+       main=main, 
+       col=c(1,1,1,2), 
+       pch=c(1,1,1,2))
 }
 
 for(m in 1:4){
@@ -134,10 +155,10 @@ doc %>%
 #digits(xt) <- 3
 xt
 
-dm <- DM[[4]]
+dm <- DM[[3]]
 dt <- dip(dm[i,-i], full.result=TRUE)
 dt$mj %>% hist
 dt$dip 
 dip.test(dm)
-plot(dt)
+plot(dt, main='')
 

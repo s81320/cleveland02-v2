@@ -46,15 +46,16 @@ calc_chipForest_1 <- function(dm, forest , oLL, parameter){
   }else{I <- 1}
   # exits with smallest I with represented(I) TRUE
   
-  R <-  1:I
+  R <-  1:I # (dense) representing subforest , dense as all trees in the inbetween (from 1 to I) are in the subforest
   kOpt <-  NA
   
   # dissimilarity matrix needed only for R
-  dm2 <-  dm2[1:I,1:I]
+  dm2 <-  dm2[R,R] # using R # funny name in an R script ...
+  # dm2 <-  dm2[1:I,1:I]
   # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
   # dip test for all trees in R (dense representing forest)
-  lapply(1:I , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% 
+  lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% 
     unlist %>% 
     min %>% 
     (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
