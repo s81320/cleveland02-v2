@@ -12,7 +12,8 @@ library(effects)
 
 withSim <- T
 if(withSim){
-  load('data/nursery/nursery01_01_50x500.rda') # loads doc[[x]]$DM for x = 1:50
+  #load('data/nursery/nursery01_01_50x500.rda') # loads doc[[x]]$DM for x = 1:50
+  load('data/nursery02/nursery02_01.rda')
   DM <-  doc[[1]]$DM
   }else{
     load('data/dms_for_a_forest_500_trees.rda') # loads DM
@@ -20,10 +21,12 @@ if(withSim){
 
 metrices <-  c('d0','d1','d2','sb')
 
+maxNumClus <-  50
+
 for(m in 1:length(metrices)){
   dm <- DM[[m]]
-  doc <- rep(NA,19)
-  for(k in 2:20){
+  doc <- rep(NA,maxNumClus-1)
+  for(k in 2:maxNumClus){
     #print(k)
     pam.obj <-  cluster::pam(x=dm
                              , k=k
@@ -45,7 +48,7 @@ for(m in 1:length(metrices)){
        , ylab=''
        ,cex.axis=1.2
        )
-  legend('bottomright'
+  legend('topright'
          , legend=metrices[[m]]
          , cex=1.2
          #, bty = 'n'
@@ -53,5 +56,32 @@ for(m in 1:length(metrices)){
   (which.max(doc) +1 ) %>% print
 }
 
+#### Hartigans' dip test on dissimilarity matrices
 
+for(m in 1:length(metrices)){
+  dm <- DM[[m]]
+  doc.dip <-  rep(NA,nrow(dm))
+  for(i in 1:nrow(dm)){
+    doc.dip[i] <- dip.test(dm[i,-i])$p.value
+  }
+  print(paste('p values for trees under', metrices[m], 'dissimilarity, directly on dissimilarity matrix'))
+  c( min(doc.dip), quantile(doc.dip, 0.01) ) %>% print
+}
 
+#### Hartigans' dip test on spacial data after mds
+
+k <- 220 # dimensions in mds
+
+for(m in 1:length(metrices)){
+  dm <- DM[[m]]
+  mp <- cmdscale(dm,k)
+  doc.dip <-  rep(NA,nrow(mp))
+  dm <- as.matrix(dist(mp))
+  for(i in 1:nrow(dm)){
+    doc.dip[i] <- dip.test(dm[i,-i])$p.value
+  }
+  print(paste('p values for trees under', metrices[m], 'dissimilarity, mds with',k,'dimensions'))
+  c( min(doc.dip), quantile(doc.dip, 0.01) ) %>% print
+}
+
+# results depend on k in mds

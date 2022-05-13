@@ -1,4 +1,7 @@
 #function winsorize copied from Calibration_Sup4_V01.R
+
+print('sourcing p r e p .R : functions winsorize_probs , predForest(forest , data) , calclosloss(forest, data) , calclogloss2(predictedProbabilities , data) , f2(forest, data , vec)')
+
 winsorize_probs <- function(x) {
   eps <- .Machine$double.eps
   pmax(pmin(x, 1 - eps), eps)

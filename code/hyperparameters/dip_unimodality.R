@@ -1,4 +1,8 @@
+# code/hyperparameters/dip_unimodality.R
+# used for table {tab:multimod:trees}
 # calculate the dip statistic
+
+# how to plot results of a dip test is at the bottom, plot for convex and concave hulls of ecdf
 
 rm(list=ls())
 
@@ -12,6 +16,7 @@ library(xtable)
 # option B
 load('data/nursery02/nursery02_01.rda') # loads DM with 4 dissimilarity matrices, one for each dissimilarity
 
+DM <- doc[[1]]$DM
 names(DM)
 metric <- names(DM)[1] ; metric
 dm <-  DM[[metric]]
@@ -155,9 +160,9 @@ doc %>%
 #digits(xt) <- 3
 xt
 
-dm <- DM[[3]]
+dm <- DM[[1]]
 dt <- dip(dm[i,-i], full.result=TRUE)
-dt$mj %>% hist
+(dt$mj - dt$mn ) %>% hist(breaks=50)
 dt$dip 
 dip.test(dm)
 plot(dt, main='')

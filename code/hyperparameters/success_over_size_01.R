@@ -1,18 +1,20 @@
 # visualize data generated in hyperparameters / ranger_num_trees-v3-nursery.R
 # and from code / ChipmanSelection / 03_hpo.R
 
+# used for figures 
+
 library(dplyr)
 
 load('data/LL_nested_regular_forests_size_2_to_500.rda') # loads LL
 
 folder <- 'data/chipman'
 files <- list.files(folder) ; files
-file <- files[[3]] ; file
+file <- files[[1]] ; file
 load(paste(folder,file,sep='/'))
 et <- et03
 
 
-# trade of for sucess and size for the regular random forest
+# trade off for success and size for the regular random forest
 apply(LL[1:100,],2,mean) -> LL.m # mean values only
 par(mar=c(4,4,0,0)+0.3)
 plot(colnames(LL)[1:9] %>% as.integer 

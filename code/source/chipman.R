@@ -1,6 +1,13 @@
+print('sourcing c h i p m a n .R : functions for building and evaluating the subforests as descriped in Chipman, Georg, McCollouch (1998), based on diversity and representation.')
 
-# functions to be called inside calc_LL_for selection
-calc_chipForest_1 <- function(dm, forest , oLL, parameter){ 
+grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
+  #' grows the Chipman 1 forest ('core technique' in the paper by Chipman, George, McCollouch) 
+  #'
+  #'
+  #' needs data.test in parent environment
+  #' @param parameter needs to have cutoff and selection
+  #' @param output if TRUE the function outputs also the p-values of dip tests and the silhouette widths when clustering
+  
   #print(dim(dm))
   #print(pa)
   
@@ -36,7 +43,9 @@ calc_chipForest_1 <- function(dm, forest , oLL, parameter){
   
   # dm should be ordered
   dm2 <-  dm[oLL,oLL]
-  N <-  min(nrow(dm2), sizeSF)
+  
+  N <-  nrow(dm2) # used to be min(nrow(dm2),N) , N would stop early as soon as N trees were selected into the dense representing subforest.
+  # But this function is for the original approach of the Chipmen, and they would not have done early stopping.
   
   if(alpha<max(dm2)){
     I <- 2
@@ -48,51 +57,66 @@ calc_chipForest_1 <- function(dm, forest , oLL, parameter){
   
   R <-  1:I # (dense) representing subforest , dense as all trees in the inbetween (from 1 to I) are in the subforest
   kOpt <-  NA
+  multimod <- NA
   
-  # dissimilarity matrix needed only for R
-  dm2 <-  dm2[R,R] # using R # funny name in an R script ...
-  # dm2 <-  dm2[1:I,1:I]
-  # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
+  # attempt clustering only if the representing forest is large (larger than 10)
+  if(I>10){
+    # attempting to cluster makes sense only for I relatively large. Larger than 10, say. 
+    # And number of cluster should be b/w 5 and 50? And not larger than I/4?
+    # dissimilarity matrix needed only for R
+    dm2 <-  dm2[R,R] # using R # funny name in an R script ...
+    # dm2 <-  dm2[1:I,1:I]
+    # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
-  # dip test for all trees in R (dense representing forest)
-  lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% 
-    unlist %>% 
-    min %>% 
-    (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
+    mds.dim <-  100
+    mp <- cmdscale(d=dm,k=mds.dim) # returns points
+    mp[R,] %>% dist %>% as.matrix -> dm3 # trees in representing subforest R as elements in R^50, distance matrix for them
+    
+    # dip test for all trees in R (dense representing forest)
+    #lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% # old code, replaced , 10.5.2022 , should run dip test on continuous data, on d0 , sb dip test will always reject hypothesis of unimodality because data is discreet
+    lapply(R , function(i) dip.test(dm3[i,-i], simulate=T)$p.value)  -> doc.pv # document intermediate results of p-values
+    doc.pv %>% 
+      unlist %>%
+      min %>% 
+      (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
   
-  # cluster only if unimodality is rejected
-  if(multimod){ # if hypothesis of unimodality is rejected : cluster
-    #print('multimod')
-    hc <- cluster::agnes(dm2, 
+    # cluster only if unimodality is rejected
+    if(multimod){ # if hypothesis of unimodality is rejected : cluster
+      #print('multimod')
+      hc <- cluster::agnes(dm2, 
                          method="ward", # always optimal - whenever I did hpo
                          diss=T)
     
-    col1 <- list()
-    # alle möglichen Anzahlen von clustern , nicht alle machen Sinn
-    # lapply(min(I-1,10):min(I-1,100), # nur zwischen 10 und 100 cluster bzw representative Bäume
-    lapply(2:(I-1), 
+      col1 <- list()
+      # to check all feasible numbers of clusters : lapply(2:I-1) but we only want sizes between 5 and 50 (arbitrary! faster!) or I-1 if that is smaller than 50
+      # we started with I>10 in previous if condition
+      lapply(5:min(50,I-1), 
            function(k){
              cutree(hc, k = k) %>% 
                silhouette(dmatrix=dm2)%>%
                .[,'sil_width'] %>%
                mean
            } ) %>% unlist -> col1
-    col1 %>% which.max +  1 -> kOpt # which liefert eine Zahl in 1 bis I-2, das muss umgerechnet werden auf die ursprünglichen range , hier 2:(I-1)
-    #col1 %>% which.max + min(I-1,10) - 1 -> kOpt # umrechnen von 1,...min(I-1,100) - min(I-1,10) +1 auf min(I-1,10) ... min(I-1,100)
+      
+      # cluster only if cluster quality is somehow OK, silhouette width of 0.2
+      if(max(col1)>0.2){
+        col1 %>% 
+          unlist %>% 
+          which.max + 4 -> kOpt # which returns a number b/w 5 and 50 (or I-1), we have to transform this back to the original range: 5 to 50 (or I-1)
+
+        hc.clus <- cutree(hc, k = kOpt)
     
-    hc.clus <- cutree(hc, k = kOpt)
-   
-    # from each cluster select the tree with the smallest logloss (on OOB data)
-    if(parameter$selection=='best'){
-      lapply(1:kOpt,function(i) which(hc.clus==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
-        # oLL to go back to original index
-        unlist -> R # representing subset
-      # if indices were not ordered, we'd do 
-      #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
-    }
-    
-    if(parameter$selection=='central'){
-      lapply(1:kOpt,
+        # from each cluster select the tree with the smallest logloss (on OOB data)
+        if(parameter$selection=='best'){
+          lapply(1:kOpt,function(i) which(hc.clus==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
+          # oLL to go back to original index
+          unlist -> R # representing subset
+          # if indices were not ordered, we'd do 
+          #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
+          }
+      
+        if(parameter$selection=='central'){
+          lapply(1:kOpt,
              function(i){
                x <-  which(hc.clus==i) # trees of cluster i
                lapply(1:length(x), 
@@ -101,19 +125,48 @@ calc_chipForest_1 <- function(dm, forest , oLL, parameter){
                  which.min %>% # smallest sum of dissimilaritites
                  x[.] %>% # zugehöriges Element in x
                  oLL[.] # original index in default forest
-             }
-      ) %>% unlist -> R
+               }
+          ) %>% unlist -> R
+        }
+      }
     }
-    
   }
   
-  return(list(calcLogloss( subforest(forest, R ), data.test)
-              , I
-              , ifelse(multimod,kOpt,I) # when multimodal, (opt.) number of clusters is the size
+  doc.ret <- list('forest'=R
+                  , 'multimod'=multimod
+                  , 'size.dense.representing.sf' = I
+                  , 'parameter'=parameter
+                  , 'call'='grow_chipForest_1')
+  
+  if(output){
+    doc.ret$mds.dim <- mds.dim
+    doc.ret$pvalues <- unlist(doc.pv)
+    if(multimod){
+      doc.ret$sil <- unlist(col1) # col1 exists only in case of rejected unimodality
+      }
+    }
+  
+  return(doc.ret)
+}
+
+eval_chipForest_1 <- function(dm , forest, oLL, parameter){
+  
+  chip1 <- grow_chipForest_1(dm , forest, oLL, parameter)
+  
+  return(list('logloss'=calcLogloss( subforest(forest, chip1$forest ), data.test)
+              , 'size.dense.representing.sf'= chip1$size.dense.representing.sf # I
+              , 'size.sf'=length(chip1$forest) # when multimodal, (opt.) number of clusters is the size
               #, kOpt # produces NA for unimodal R , allows to count unimodal vs multimodal cases
   )
   )
 }
+
+
+# functions to be called inside calc_LL_for selection
+calc_chipForest_1 <- function(dm, forest , oLL, parameter){ 
+  return(eval_chipForest_1(dm , forest, oLL, parameter)) 
+}
+ 
 
 calc_chipForest_1_enforce <- function(dm, oLL, forest, parameter){ 
 
@@ -211,7 +264,6 @@ calc_chipForest_2 <- function(dm , forest, oLL, parameter){
               , length(chipForest)))
 }
 
-
 grow_meinForest<- function(dm , LL, parameter){
   #' calculates the Meiner forest
   #' 
@@ -266,7 +318,7 @@ grow_meinForest<- function(dm , LL, parameter){
   } # for exits with I the first index after all trees have been collected
   # should be 500 for sizeSF=500 (unstopped Meiner) but may be smaller for sizeSF <500 (stopped Meiner)
   parameter$represented <- I
-  return(list('forest'=meinForest, 'parameter'=parameter))
+  return(list('forest'=meinForest, 'parameter'=parameter , 'type'='Meiner'))
   }
 
 eval_meinForest <- function(dm , forest, LL, parameter){
@@ -350,14 +402,15 @@ calc_LL_for_selection <- function(method, doc, parameter){
   
   ct <- 1
   for(i in 1:nBs){
-    #print(paste(i/nBs , Sys.time()))
+    print(paste(i/nBs , Sys.time()))
     #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
     
     DM <- doc[[i]]$DM
     
     forest <- doc[[i]]$rg$forest
     
-    data.train <- doc[[i]]$`bootstapped training data`
+    #data.train <- doc[[i]]$`bootstapped training data` # refers to nursery , we should work with nursery02 and the corrected typo!
+    data.train <- doc[[i]]$`bootstrapped training data` # new 11.5.2022
     OOB <-  base::setdiff(1:nrow(Cleve), unique(doc[[i]]$resample))
     data.set.val <- Cleve[OOB,] # goes back to original Cleveland data
     
@@ -402,7 +455,7 @@ calc_LL_for_selection <- function(method, doc, parameter){
                      , 'chip2'=list(dm=DM[[metric]], forest=forest, oLL=oLL, parameter=parameter[[metric]])
                      , 'chip1_simplified'=list(dm=DM[[metric]] , oLL=oLL, forest=forest, parameter=parameter[[metric]]))
       
-      #print(parameter[[metric]])
+      print(parameter[[metric]])
      # DM[[metric]] %>%
       #calc_chipForest_2(forest, oLL, parameter[[metric]]) -> res[[metric]]
       #calc_meinForest(forest, LL, parameter[[metric]]) -> res[[metric]]
@@ -412,7 +465,7 @@ calc_LL_for_selection <- function(method, doc, parameter){
                               , argsL[[method]]
                               )
     }
-    #print(unlist(res))
+    print(unlist(res))
     evalT[i,] <- unlist(res)
   }
   

@@ -22,9 +22,44 @@ plotTree1(rg,1)
 plotTree1(rg,2)
 plotTree1(rg,3)
 
-(rt2fbt(rg$forest,1) - rt2fbt(rg$forest,2) == 0 ) %>% table
-(rt2fbt(rg$forest,1) - rt2fbt(rg$forest,3) == 0 ) %>% table
-(rt2fbt(rg$forest,3) - rt2fbt(rg$forest,2) == 0 ) %>% table
+# how often are entries equal?
+t1 <- fbt1$sb.info
+t2 <- fbt2$sb.info
+(t1 == t2 ) %>% table
+# if they are equal, what value do they have? # 0!
+(t1 == t2 ) %>% t1[.]
+(t1==t2 ) %>% 
+  (function(x) t1[x] ==0) %>%
+  table
+#if they are not equal, what value do they have?
+(t1 != t2 ) %>% t1[.]
+(t1 != t2 ) %>% t2[.]
+(t1 != t2 ) %>% 
+  (function(x) t1[x]) %>%
+  table
+(t1 != t2) %>% 
+  (function(x) t2[x]) %>%
+  table
+
+# trees are not equal and one of them has a split node (one of them is 0)
+(t1 != t2 ) %>% 
+  (function(x) t2[x]*t1[x] == 0) %>%
+  table
+
+# trees 1 and 3
+# how often are entries equal?
+t3 <- fbt3$sb.info
+(t1 == t3 ) %>% table
+# if they are equal, what value do they have? # 0!
+(t1 == t3 ) %>% t1[.]
+(t1==t3 ) %>% 
+  (function(x) t1[x] ==0) %>%
+  table
+
+# trees are not equal and one of them has a split node (one of them is 0)
+(t1 != t3 ) %>% 
+  (function(x) t3[x]*t1[x] == 0) %>%
+  table
 
 DM <-  doc[[1]]$DM
 DM$d0[1:3,1:3]
@@ -43,7 +78,7 @@ which(DM$d0[3,-3]==0)  %>% length #/499
 
 lapply(1:500, function(i) which(DM$d0[i,-i]==0) %>% length) %>% unlist %>% table %>% plot(main='frequencies of number of indistinguishable trees')
 
-# trees mith maximum dissimilarity
+# trees with maximum dissimilarity
 which(DM$d0[2,]==1)  %>% length #/499
 max(DM$d0[3,])
 

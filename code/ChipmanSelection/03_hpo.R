@@ -15,11 +15,12 @@ library(diptest)
 library(xtable)
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
+Swiss <- Swiss[,1:11]
 
 # corrected Swiss
-corSwiss <- Swiss[,1:11]
-corSwiss$STDepression <-  corSwiss$STDepression - min(corSwiss$STDepression)
-range(corSwiss$STDepression)
+#corSwiss <- Swiss[,1:11]
+#corSwiss$STDepression <-  corSwiss$STDepression - min(corSwiss$STDepression)
+#range(corSwiss$STDepression)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
@@ -69,13 +70,13 @@ hpo <- function(method, parameter, data){
          )
 }
 
-method='meiner'
+method='chip1'
 
 #### build parameter
 ####################
 # chipman 1 simplified does not need a parameter. 
 # Multiple cutoff parameters just repeat the same code and give the same results.
-cutoff <- seq(0, 0.9, by=0.1)
+cutoff <- seq(0.3, 0.6, by=0.1)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
@@ -91,12 +92,14 @@ if(method %in% c('chip1','chip1_simplified')){
 ######################
 res1 <- hpo(method=method
             , parameter=parameter
-            , data='corSwiss') # result
+            , data='Swiss') # result
 
 et03 <- res1$et
 files <- res1$simulations
 
-#save(et03 , file='data/chipman/hpo_chip2_stopped_50*.rda')
+# next run:
+# res3 <-  res1
+# save(res3 , file='data/chipman/hpo_chip1_0.7-0.9.rda')
 # save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
