@@ -9,6 +9,7 @@ library(caret)
 library(ranger)
 library(effects)
 library(cluster)
+library(xtable)
 
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
@@ -20,7 +21,7 @@ data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 
-sizeSF <- 50
+sizeSF <- 5
 
 calc_LL_for_selection <- function(doc, sizeSF){
   
@@ -72,9 +73,11 @@ calc_LL_for_selection <- function(doc, sizeSF){
   return(evalT)
 }
 
+#set.seed(1)
 # to base the result on more bootstraps
-folder <- 'data/nursery'
-files <- list.files(folder)#[1:5]
+#folder <- 'data/nursery'
+folder <- 'data/nursery02'
+files <- list.files(folder)#[1:2]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector
@@ -95,16 +98,18 @@ boxplot(et[,2:4]
 
 #names(et)
 et %>% 
-  select(random, 'unimod hp', default) %>%
+  select(default, random, 'unimod hp') %>%
   summarize_all(function(x) c(mean(x), sd(x))) %>%
   t %>% 
-  xtable -> et.xt
+  cbind(c(500, sizeSF, sizeSF),.) %>%
+  xtable(caption=paste('forest from ', folder, ', tested on' , data.test.name)) -> 
+  et.xt
 
 #et.xt
 digits(et.xt) <- 4
 et.xt
 
 et %>% 
-  select(random, 'unimod hp', default) %>%
+  select(default , random, 'unimod hp' ) %>%
   summarize_all(function(x) c(median(x), IQR(x)))
 

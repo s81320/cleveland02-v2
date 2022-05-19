@@ -11,7 +11,8 @@ folder <- 'data/chipman'
 files <- list.files(folder) ; files
 file <- files[[1]] ; file
 load(paste(folder,file,sep='/'))
-et <- et03
+et <- res$et
+#et <- et03
 
 
 # trade off for success and size for the regular random forest
@@ -55,7 +56,8 @@ for(metric in metrices){
     rbind(et2) -> et2
 }
 
-par(mar=c(4,4,2,1)+0.3)
+#par(mar=c(4,4,2,1)+0.3)
+par(mar=c(4,4,1,1)+0.1)
 apply(LL,2,mean) -> LL.m # mean values only
 plot(colnames(LL) %>% as.integer 
      , LL.m 
@@ -63,14 +65,15 @@ plot(colnames(LL) %>% as.integer
      , xlab='size'
      , ylab='logloss'
     # , main='Chipman 2 forests in context of regular random forests'
+    , cex.lab=1.2
      )
 points(et2$size , et2$logloss, col=as.factor(et2$dissim))
 legend('topright'
        # , legend=c('Chipman 1, d0','Chipman 1, d1','Chipman 1, d2','Chipman 1, sb','regular RF')
-       , legend=c('Meiner, d0','Meiner, d1','Meiner, d2','Meiner, sb','regular RF')
+       , legend=c('d0','d1','d2','sb','regular RF')
        , pch=c(rep('o',4),'-')
        , col=c(1:4,1)
-       , cex=0.8
+       #, cex=0.8
 )
 
 par(mar=c(4,4,1,1)+0.01)
@@ -84,21 +87,22 @@ LL[,which((as.integer(colnames(LL)) > 9 ) & (as.integer(colnames(LL)) < 101 ) )]
        , ylab='logloss'
        #, main='success over size for Chipman 2 forests\nin context of regular random forests'
        )
-abline(mean(LL[,'500']),0,col='grey')
+#abline(mean(LL[,'500']),0,col='grey')
 
 text(et2[(et2$size > 9)&(et2$size<101),'size']
      , et2[(et2$size >9)&(et2$size<101),'logloss' ]
      , labels = et2[(et2$size >9)&(et2$size<101),'cutoff' ] 
-     , cex=0.8
+     #, cex=0.8
+     , cex=1.2
      , col=as.integer(as.factor(et2[(et2$size >9)&(et2$size<101),'dissim' ])))
 
-legend('topright'
-       #, legend=c('Chipman 2, d0','Chipman 2, d1','Chipman 2, d2','Chipman 2, sb','regular RF','default forest, size 500','cutoff parameter')
-       , legend=c('Meiner, d0','Meiner, d1','Meiner, d2','Meiner, sb','regular RF','default forest, size 500','cutoff parameter')
-       , pch=c(rep('o',4),'-','-','x')
-       , col=c(1:4,1,'grey',1)
-       , cex=0.8
-)
+#legend('topright'
+#       #, legend=c('Chipman 2, d0','Chipman 2, d1','Chipman 2, d2','Chipman 2, sb','regular RF','default forest, size 500','cutoff parameter')
+#       , legend=c('d0','d1','d2','sb','regular RF','default forest, size 500','cutoff parameter')
+#       , pch=c(rep('o',4),'-','-','x')
+#       , col=c(1:4,1,'grey',1)
+#       , cex=0.8
+#)
 
 
 LL[,which((as.integer(colnames(LL))>3) & (as.integer(colnames(LL))<11 ) )] %>%

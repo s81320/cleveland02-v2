@@ -35,7 +35,7 @@ source('code/source/chipman.R')
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Hung'
+data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
 

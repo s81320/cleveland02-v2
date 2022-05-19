@@ -36,14 +36,14 @@ hpo <- function(method, parameter, data){
   
   # to base the result on more bootstraps
   folder <- 'data/nursery02'
-  files <- list.files(folder)[1:2]
+  files <- list.files(folder)#[1:1]
   # dir(folder)
   
   collector.p <-  list()
   ct.p <-  1
   
   for(p in 1:nrow(parameter)){
-    print(paste('parameter ', p ,'at', Sys.time()))
+    #print(paste('parameter ', p ,'at', Sys.time()))
     
     collector.f <-  list()
     ct.f <-  1 # counter for the above collector 
@@ -70,13 +70,13 @@ hpo <- function(method, parameter, data){
          )
 }
 
-method='chip1'
+method='meiner'
 
 #### build parameter
 ####################
 # chipman 1 simplified does not need a parameter. 
 # Multiple cutoff parameters just repeat the same code and give the same results.
-cutoff <- seq(0.3, 0.6, by=0.1)
+cutoff <- seq(0, 0.4, by=0.1)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
@@ -98,8 +98,7 @@ et03 <- res1$et
 files <- res1$simulations
 
 # next run:
-# res3 <-  res1
-# save(res3 , file='data/chipman/hpo_chip1_0.7-0.9.rda')
+# save(res1 , file='data/chipman/hpo_method_param*.rda')
 # save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
@@ -123,9 +122,9 @@ for(nam in names(et03)){
   plot(cutoff
      , et03.s[,1]
      , type='l'
-     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
+     , main=paste('Chipman forests \n(method', res1$call$method , ',', 50*length(files) , ' simulations)')
      , ylim=ylim
-     , xlab='cutoff parameter (quantile of dissimilarities)'
+     , xlab='representation parameter (quantile of dissimilarity)' 
      , ylab='mean logloss')
   #wm <- which.min(et03.s[,1])
   #points(cutoff[wm], et03.s[wm,1],col=1, pch=19 )
@@ -144,20 +143,20 @@ et03.s <- et03 %>% select(tidyr::starts_with('I'))
 ylim <- range(et03.s)
 plot(cutoff
      , et03.s[,1]
-     , type='b'
-     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
+     , type='l'
+     , main=paste('Chipman forests \n(method', res1$call$method , ' , ' , 50*length(files), 'simulations)')
      , ylim=ylim
-     , xlab='cutoff parameter (quantile of dissimilarities)'
-     , ylab='trees oredered by OOB performance')
+     , xlab='representation parameter (quantile of dissimilarity)' 
+     , ylab='representing trees')
 #points(cutoff[wm], et03.s[wm,1],col=1, pch=19 )
 for(k in 2:4){
   points(cutoff
          , et03.s[,k]
-         , type='b'
+         , type='l'
          , col=k)
  # points(cutoff[wm], et03.s[wm,k],col=k, pch=19 )
 }
-legend( 'topleft'
+legend( 'topright'
   #'bottomright'
        , legend=c('d0','d1','d2','sb') 
        , pch=1
@@ -176,9 +175,9 @@ metrices <- c('d0','d1','d2','sb')
   plot(cutoff
      , et03.s[,1]
      , type='l'
-     , main=paste('Chipman forests \n(', res1$call$method , ', ', 50*length(files) , ' simulations)')
+     , main=paste('Chipman forests \n(method', res1$call$method , ', ', 50*length(files) , ' simulations)')
      , ylim=ylim
-     , xlab='cutoff parameter (quantile of dissimilarities)'
+     , xlab='representation parameter (quantile of dissimilarity)' 
      , ylab='mean size')
   #wm <- which.min(et03.s[,1])
   #points(cutoff[wm], et03.s[wm,1],col=1, pch=19 )
@@ -195,38 +194,40 @@ metrices <- c('d0','d1','d2','sb')
   legend('topright', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 }
 
-
+# free lunch for d0
 # for selected metric : size and logloss in one plot
 {
-  par(mar=c(4,4,3,4)+0.2)
-  metric <- 'd2'
+  par(mar=c(4,4,1,4)+0.2)
+  #par(mar=c(4,4,3,4)+0.2)
+  metric <- 'd0'
   et03 %>% select(cutoff , ends_with(metric)) -> etA
   x <- etA$cutoff
   y <- etA %>% select(starts_with('size')) %>% unlist
   z <- etA %>% select(starts_with('LL')) %>% unlist
   plot(y~x 
-     , main=paste('Chipman forests \n(', res1$call$method , ' , dissim' , metric , ' , ' , 50*length(files) , ' simulations)')
+     #, main=paste('Chipman forest \n(method', res1$call$method , ' , dissimilarity' , metric , ' , ' , 50*length(files) , ' simulations)')
      , type='l' 
      , ylab='size: number of trees in Chipman forest' 
-     , xlab='parameter')
+     , xlab='representation parameter (quantile of dissimilarity)' 
+     , cex.lab=1.2)
   par(new = TRUE)
   plot(z~x , axes = FALSE, bty = "n", xlab = "", ylab = "", type='l' , col='blue')
-  axis(side=4, at = pretty(range(z)), col='blue')
-  mtext("success: logloss", side=4, line=3 , col='blue')
+  axis(side=4, at = pretty(range(z)), col='blue' , col.axis='blue',cex=1.2)
+  mtext("success: logloss", side=4, line=3 , col='blue', cex=1.2)
 }
 
 # plot logloss over size
 # must be some kind of smoothing of the many pairs of (size, logloss) we generate over the 100 or 1000 simulations
 
-par(mar=c(4,4,2,1)+0.1)
+par(mar=c(4,4,3,1)+0.1)
 ylim <-  range(et03 %>% select(starts_with('LL')))
 plot(et03$cutoff
      , et03$LL.test.chip.d0
      , type='l'
      , ylim=ylim 
-     , xlab='cutoff parameter' 
+     , xlab='representation parameter (quantile of dissimilarity)' 
      , ylab='logloss'
-     , main=paste('logloss for Chipman forest', res1$call$method , mean(res1$call$parameter$sizeSF) , sep=' , ')
+     , main=paste('Chipman forest\n(method', res1$call$method , ')', sep=' ')
 )
 points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
 points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
@@ -234,19 +235,26 @@ points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
 legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 
 # zoom in
-par(mar=c(4,4,2,1)+0.1)
-ylim <-  range(et03[1:8,] %>% select(starts_with('LL')))
-plot(et03$cutoff[1:8]
-     , et03$LL.test.chip.d0[1:8]
+par(mar=c(4,4,1,1)+0.1)
+# par(mar=c(4,4,3,1)+0.1)
+N <- 6 # number of parameters in plot
+ylim <-  range(et03[1:N,] %>% select(starts_with('LL')))
+x <- et03$cutoff[1:N]
+y <- et03$LL.test.chip.d0[1:N]
+plot(x
+     , y
      , type='l'
      , ylim=ylim 
-     , xlab='cutoff parameter' 
+     # , main=paste('Chipman forest\n(method', res1$call$method , ')', sep=' ')
+     , xlab='representation parameter (quantile of dissimilarity)'
      , ylab='logloss'
-     , main=paste('logloss for Chipman forest', res1$call$method , mean(res1$call$parameter$sizeSF) , res1$call$data , sep=' , ')
-)
-points(et03$cutoff[1:8], et03$LL.test.chip.d1[1:8], type='l', col=2)
-points(et03$cutoff[1:8], et03$LL.test.chip.d2[1:8], type='l', col=3)
-points(et03$cutoff[1:8], et03$LL.test.chip.sb[1:8], type='l', col=4)
+     , axes =F )
+axis(1)
+axis(2 , at=seq(round(min(ylim),2),round(max(ylim),2),by=0.01))
+box()
+points(x, et03$LL.test.chip.d1[1:N], type='l', col=2)
+points(x, et03$LL.test.chip.d2[1:N], type='l', col=3)
+points(x, et03$LL.test.chip.sb[1:N], type='l', col=4)
 legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 
 

@@ -106,3 +106,35 @@ dip.test(rep(1:10,each=10)/100) # unimodal , pvalue 0.06
 hist(rep(1:10,each=100)/100, breaks=20)
 dip.test(rep(1:10,each=100)/100) # multimodal
 
+# should we standardize the dissimilarity matrix before clustering? 
+# It seems to matter for the silhouette width
+
+set.seed(1)
+dm <-  matrix(abs(rnorm(100,0,1)), nrow=10) # not a dissimilarity matrix
+dm1 <-  dm %>% as.dist %>% as.matrix # now symmetric and 0 on diagonal
+# transformations of the dissimilarity matrix
+# dm2 <-  dm*5 # does not change sil width (common factor, cancels in definition of silhouette)
+# dm2 <- dm /(max(dm)-min(dm)) # 1/(max-min) is also a common factor
+dm2 <-  10 + dm # not a dissimilarity matrix, 10 on the diagonal
+dm2 <-  dm2 %>% as.dist %>% as.matrix # now symmetric and 0 on diagonal
+# but dm2 does not represent the same dissimilarities, it is profoundly changed. Not allowed!
+pam(x=dm1, k=2)$silinfo$avg.width
+pam(x=dm2, k=2)$silinfo$avg.width
+
+# what matters is the distribution of of distances
+# min(dm) > 0 makes it harder to get a good clustering
+# max(dm) close to min(dm) also makes it harder (especially / only if min(dm)>0)
+
+load('data/nursery02/nursery02_01.rda')
+
+DM <- doc[[1]]$DM
+
+# ranges of dissimilarities, ratio of max to min in dissimilarities
+for(i in 1:4){
+  names(DM)[i] %>% print
+  dm <-  DM[[i]]
+  r <- range(as.dist(dm)) 
+  r %>% print
+  (r[2]/r[1]) %>% print
+}
+

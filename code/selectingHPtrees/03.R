@@ -3,6 +3,8 @@
 # select trees that perform best on OOB data from simulations
 # the best 50 selected from 5000 should perform better than the best 50 selected from 500
 
+# check for overfitting
+
 # no result
 
 rm(list=ls())
@@ -18,10 +20,17 @@ source('code/source/subforest.R') # subforest
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
+# set training data by name : most likely Cleve
+{data.test.name <-  'Cleve'
+  data.test <-  get(data.test.name)
+  attr(data.test,'data.test.name') <- data.test.name
+  data.test.name <- NULL}
+
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Hung'
-data.test <-  get(data.test.name)
-attr(data.test,'data.test.name') <- data.test.name
+{data.train.name <-  'Hung'
+data.train <-  get(data.train.name)
+attr(data.train,'data.train.name') <- data.train.name
+data.train.name <- NULL}
 
 sizeSF <- 50
 
@@ -39,7 +48,8 @@ calc_LL_for_selection <- function(doc, sizeSF){
     
     forest<- doc[[i]]$rg$forest
     
-    data.train <- doc[[i]]$`bootstapped training data`
+    # data.train <- doc[[i]]$`bootstapped training data` # typo in nursery
+    data.train <- doc[[i]]$`bootstrapped training data` # no typo in nursery02
     forest2 <- ranger(CAD~.
                  , data = data.train 
                  , num.trees = 5000 # 5000
@@ -83,8 +93,8 @@ calc_LL_for_selection <- function(doc, sizeSF){
 }
 
 # to base the result on more bootstraps
-folder <- 'data/nursery'
-files <- list.files(folder)#[1:5]
+folder <- 'data/nursery02'
+files <- list.files(folder)[1:2]
 # dir(folder)
 collector <-  list()
 ct <-  1 # counter for the above collector

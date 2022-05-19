@@ -448,24 +448,16 @@ calc_LL_for_selection <- function(method, doc, parameter){
          , 'chip2'=calc_chipForest_2
          , 'chip1_simplified'=calc_chipForest_1_enforce)
     
-    
     for(metric in metrices){
       argsL <-  list('meiner'=list(dm=DM[[metric]], forest=forest, LL=LL, parameter=parameter[[metric]])
                      , 'chip1'=list(dm=DM[[metric]], forest=forest, oLL=oLL, parameter=parameter[[metric]])
                      , 'chip2'=list(dm=DM[[metric]], forest=forest, oLL=oLL, parameter=parameter[[metric]])
                      , 'chip1_simplified'=list(dm=DM[[metric]] , oLL=oLL, forest=forest, parameter=parameter[[metric]]))
-      
-      print(parameter[[metric]])
-     # DM[[metric]] %>%
-      #calc_chipForest_2(forest, oLL, parameter[[metric]]) -> res[[metric]]
-      #calc_meinForest(forest, LL, parameter[[metric]]) -> res[[metric]]
-      #calc_chipForest_1(forest, oLL, parameter[[metric]]) -> res[[metric]]
-      # calc_chipForest_1_enforce(oLL=oLL, forest=forest, parameter=parameter[[metric]]) -> res[[metric]] # needs sizeSF , not cutoff
-     res[[metric]] <- do.call(funL[[method]]
+      res[[metric]] <- do.call(funL[[method]]
                               , argsL[[method]]
                               )
     }
-    print(unlist(res))
+    
     evalT[i,] <- unlist(res)
   }
   

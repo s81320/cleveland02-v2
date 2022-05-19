@@ -51,7 +51,7 @@ createDMd1 <- function(forest, dft){
     #' (one tree placing them in the same node the other tree in separate nodes) are less similar.
     #' 
     #' @param forest a ranger forest object
-    #' @param dft the training data frame used to build the forest. 
+    #' @param dft the training data frame used to build the forest. In simulations one should use only the unique observations (remove the target, in simulations there may be different targets values for the same feature vector) in the set.
     #' But it can be any set at all as long as the forest can handle it.
     #' 
     #' @return a matrix of d1 dissimilarities for the trees in the forest. matrix entries are in [0,1].
@@ -73,7 +73,8 @@ createDMd1 <- function(forest, dft){
   #docTN <- list() # documenting the terminal nodes and their observations
   for(tri in 1:nT){
     # loop through IDs of terminal nodes
-    for(tn in tNodes(forest,tri)){
+    TN <- tNodes(forest,tri) 
+    for(tn in TN){ # TN set of terminal nodes , tn individual terminal node
       sameTN <- which(pp[,tri]==tn) # observations mapped to this terminal node ID
       #docTN[[tn]] <- sameTN
       for(i in sameTN){
