@@ -70,13 +70,13 @@ hpo <- function(method, parameter, data){
          )
 }
 
-method='meiner'
+method='chip1'
 
 #### build parameter
 ####################
 # chipman 1 simplified does not need a parameter. 
 # Multiple cutoff parameters just repeat the same code and give the same results.
-cutoff <- seq(0, 0.4, by=0.1)
+cutoff <- seq(0.1, 0.9, by=0.4)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
@@ -85,14 +85,14 @@ sizeSF <- rep(500,length(cutoff))
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 
 if(method %in% c('chip1','chip1_simplified')){
-  parameter$selection <- rep('best',length(cutoff))
+  parameter$selection <- rep('central',length(cutoff))
 }
 
 #### call function hpo
 ######################
 res1 <- hpo(method=method
             , parameter=parameter
-            , data='Swiss') # result
+            , data='Hung') # result
 
 et03 <- res1$et
 files <- res1$simulations

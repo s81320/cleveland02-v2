@@ -5,6 +5,8 @@ rm(list=ls())
 
 library(ranger)
 library(xtable)
+library(caret)
+library(dplyr)
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
@@ -23,7 +25,7 @@ data.set.name <- NULL}
 
 
 #### test set
-{data.set.name <- 'Swiss'
+{data.set.name <- 'Hung'
 data.test <- get(data.set.name)[,1:11]
 attr(data.test,'data.set.name') <- data.set.name
 data.set.name <- NULL}
@@ -79,6 +81,8 @@ plot(names(doc.bc)[-10]
      , xlab='size regular small forest')
 
 ################################################################################
+#### testing Chipman and Meiner forests with parameters from hpo 
+################################################################################
 
 test.models <-  list()
 test.models[[1]] <- list(method='meiner'
@@ -87,9 +91,22 @@ test.models[[1]] <- list(method='meiner'
 test.models[[2]] <- list(method='meiner'
                          , metric='d0'
                          , parameter=list('cutoff'=0, 'sizeSF'=500))
+test.models[[1]] <- list(method='meiner'
+                         , metric='d1' # takes 10 hours to run!
+                         , parameter=list('cutoff'=0.1, 'sizeSF'=500))
+                         
+test.models[[1]] <- list(method='meiner'
+                         , metric='d0' 
+                         , parameter=list('cutoff'=0.5, 'sizeSF'=500))
+test.models[[2]] <- list(method='meiner'
+                         , metric='d2' 
+                         , parameter=list('cutoff'=0.7, 'sizeSF'=500))
 test.models[[3]] <- list(method='meiner'
-                         , metric='d1' # takes long to run!
-                         , parameter=list('cutoff'=0.25, 'sizeSF'=500))
+                         , metric='sb' 
+                         , parameter=list('cutoff'=0.6, 'sizeSF'=500))
+test.models[[2]] <- list(method='meiner'
+                         , metric='d1' # takes 10 heurs to run!
+                         , parameter=list('cutoff'=0.8, 'sizeSF'=500))
 
 f1 <- function(method, metric, parameter, nLoops=100){
   #' build forest for given method and evaluate its performance
@@ -186,19 +203,59 @@ for(i in 1:length(test.models)){
   results[[i]] <- f1(method=test.models[[i]]$method
      , metric=test.models[[i]]$metric 
      , parameter=test.models[[i]]$parameter
-     , nLoops=100)
+     , nLoops=1000)
 }
 
-print(results[[1]]$call)
-res <- results[[1]]$res
+test.case <- 3
+res.cal <- results[[test.case]]$call ; res.cal
+res.res <- results[[test.case]]$res
 
-apply(res,2,mean)
-apply(res,2,function(x) c(mean(x),sd(x)))
-(res[,'logloss.bc'] - res[,'logloss.meiner']) %>% 
-  hist(main='overshoot for regular small forest vs meiner forest'
-       , breaks=nLoops/2)
+apply(res.res,2,mean)
+apply(res.res,2,function(x) c(mean(x),sd(x)))
 
-#save(results, file='data/testNewMethods/results-XYZ*.rda')
+{with.main <-  F
+if(with.main){
+  par(mar=c(4,4,2,1)+0.1)
+}else{
+  par(mar=c(4,4,0,1)+0.1)
+}
+(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner']) %>% 
+  hist(xlab='logloss overshoot of base case'
+       , main=ifelse(with.main,'overshoot for regular small forest vs meiner forest','')
+       , breaks=100)
+legend('topright',legend=c(res.cal$method, res.cal$metric , res.cal$parameter$cutoff))
+box()
+}
+
+dip.test(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner'])
+t.test(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner'], alternative='greater')
+
+doc.tests <-  matrix(NA, nrow=length(results), ncol=4)
+for(r in 1:length(results)){
+  oversh <- results[[r]]$res[,'logloss.base.case'] - results[[r]]$res[,'logloss.meiner']
+  tt <- t.test(oversh, alternative='greater')
+  doc.tests[r,] <-  c(dip.test(oversh)$p.value 
+                      , tt$p.value
+                      , tt$conf.int[[1]]
+                      , attr(tt$conf.int,'conf.level'))
+}
+doc.tests <-  as.data.frame(doc.tests)
+colnames(doc.tests) <-  c('dip test p-value','t-test p-value','lower bound of mean overshoot','t-test confidence level')
+doc.tests %>% xtable -> dt.xt
+digits(dt.xt) <- c(0,4,4,4,2)
+dt.xt
+# I need a normal distribution (of the difference) to apply the t test
+
+# I do NOT need a normal distribution for the guys I do the difference with, still, might be interesting:
+hist(res.res[,'logloss.base.case'], breaks=10 , main='looks exponential')
+hist( res.res[,'logloss.meiner'], breaks=10, main='looks exponential')
+
+hist(res.res[,'logloss.base.case'], breaks=40, main='looks strange and multimodal')
+hist( res.res[,'logloss.meiner'], breaks=40,main='looks strange and multimodal')
+
+#save(results, file='data/testNewMethods/results-meiner-*.rda')
+#save(test.models , results , file='data/testNewMethods/***.rda ')
+
 #results[[length(results)+1]] <-  res1
 
 ################################################################################
@@ -349,11 +406,140 @@ f2 <- function(data.train, data.val , data.test, sz=50 , nLoops=100, returnLL = 
 }
 
 set.seed(1)
-res1 <- f2(data.train, data.val='OOB' , data.test, sz=50 , nLoops=1000, returnLL=T) # no validation data, just a strategy for creating the validation data from training or test data
+res1 <- f2(data.train, data.val='OOB' , data.test, sz=5 , nLoops=1000, returnLL=T) # no validation data, just a strategy for creating the validation data from training or test data
 #res1 <- f2(data.train=data.train , data.val=data.train , data.test=data.test, sz=50 , nLoops=100, returnLL=T) 
 res1$call
 res1$res %>% apply(2,function(x) c(mean(x),sd(x)))
 res1$corLL %>% apply(2,function(x) c(mean(x),sd(x)))
+
+################################################################################
+#### test like a data scientist ################################################
+################################################################################
+
+# create the data differently: mix Cleve, Swiss, Hung
+# and partition it into test, dev, train
+
+# find differences in how to gain the devset: 
+# data.dev 'OOB' results in worse results than the default forest
+# data.dev 'split' is and high performers outperform the default forest.
+# -> OOB tests the splitting into test and train, if these sets are close, a tree build on train performs good on train and will perform good on test (as test is similar to train)
+# if train and test are different, the the tree built on train performs good on train but not on test. 
+# selecting trees that were grown on training sets with a similar test set is no quality measure for the tree.
+
+# load data from beginning of script (Cleve, Swiss, Hung)
+
+
+LL_all_trees <- function(forest,data){  
+  pp <- predict(forest 
+                , data=data
+                , predict.all = T)$predictions[,2,]
+  lapply(1:forest$num.trees
+         , function(t){ 
+           pp[,t] %>% 
+             calcLogloss2( df=data ) %>% 
+             unlist}
+  ) %>% 
+    unlist 
+}
+
+data.all <-  rbind(Cleve[,1:11], Swiss[,1:11], Hung[,1:11])
+dim(data.all)
+
+test_hp_forest <- function(data.all, data.val, sz=50 , nLoops=100, returnLL = F){
+
+  print(data.val)
+  if(!(data.val %in% c('OOB','split'))){ print('data.val should be OOB or split.') ; return() }
+  
+  dp <- createDataPartition(data.all$CAD ,times = nLoops , p= 0.6) # dp : data partition
+  doc <- data.frame(matrix(NA,nrow=nLoops, ncol=4))
+  for(i in 1:nLoops){
+    data.train <- data.all[dp[[i]],]
+    data.test <- data.all[-dp[[i]],] # actual testing will be on data.test.set which is set depending on data.val
+  
+    rg <- ranger(CAD~.
+               , data = data.train 
+               , num.trees = 500
+               , replace = T # replace = T is good for doing predictions later on? would not have guessed from the name!
+               , mtry= 3 # default : 3
+               , importance = 'impurity'
+               , probability = T 
+               , min.node.size = 13 
+               , keep.inbag = T # need inbag data only for data.val =='OOB'
+  )
+  forest.full <- rg$forest
+  
+  if(data.val=='OOB'){
+      data.test.set <- data.test
+      
+      # on individual OOB observations , (may be) different for each tree
+      # prediction probabilities : pp
+      pp <- predict(forest.full 
+                    , data=data.train 
+                    , predict.all = T)$predictions[,2,] # dim 303 x 500
+      
+      lapply(1:forest.full$num.trees
+             , function(t){ 
+               OOB <- which(rg$inbag.counts[[t]]==0)
+               pp[OOB,t] %>% 
+                 calcLogloss2( df=data.train[OOB,] ) %>% 
+                 unlist}
+      ) %>% 
+        unlist -> LL # LL created , no data.val.set needed
+    }
+  
+  if(data.val=='split'){
+    fold1 <- createDataPartition(data.test$CAD, 1, 0.5) %>% unlist # split the ORIGINAL data.test which is a df
+    data.val.set <-  data.test[fold1,]
+    data.test.set <- data.test[-fold1,] # overwriting setting data.test.set at beginning of function
+    LL <- LL_all_trees(forest.full, data.val.set)
+    }
+  
+  hp <- order(LL)[1:sz]
+  
+  doc[i,] <- c( calcLogloss(forest.full, data.test.set) # full forest
+                , sz # size of (selected sub-) forest
+                , calcLogloss(subforest(forest.full, hp), data.test.set) # logloss for (selecte sub-) forest
+                , calcLogloss(subforest(forest.full, 1:sz), data.test.set)) # logloss for regular small forest of same size as (selected sub-) forest
+}
+
+names(doc) <- c('default','size','high performers','regular small')
+return(doc)
+}
+
+test_hp_forest(data.all , 'split' , nLoops = 10)
+
+# give options on models to test directly
+doc.hp <- test_hp_forest(data.all, data.val='OOB' ,sz=5 , nLoops=100 )
+doc.hp %>% apply(2,function(x) c(mean(x),sd(x)))
+
+oversh <- doc.hp[,4]-doc.hp[,3]
+par(mar=c(4,4,2,1)+0.1)
+hist(oversh, breaks=100) # looks multimodal
+hist(oversh, breaks=10) # looks unimodal, bit skewed
+
+# loop over all / some models to test
+# use expand grids to generate all combinations of parameters to be tested
+parameter <- expand.grid(c('split','OOB') , c(5,50), stringsAsFactors = F , KEEP.OUT.ATTRS = F)
+colnames(parameter) <- c('data.val','sz') # would like to pass a list A[i,] %>% as.list with names recognised and interpreted as arguments.
+parameter[1,] # is now a test case
+
+results <-  list()
+for(i in 1:nrow(parameter)){
+  print(Sys.time())
+  print(parameter[i,])
+  results[[i]] <- test_hp_forest(data.all=data.all 
+                                 , data.val=parameter[i,1] 
+                                 , sz =parameter[i,2] 
+                                 , nLoops=10000)
+  results[[i]] %>% apply(2,function(x) c(mean(x),sd(x))) %>% t %>% xtable -> xt
+  digits(xt) <-  4
+  print(xt)
+}
+
+res.doc <- list(parameter=parameter, results=results, info='training data is 60% of mixed Cleve, Swiss, Hung. Code in code/testBestModels/repetitions.R')
+save(res.doc , file='data/testNewMethods/results-hp-10000rep.rda')
+
+
 ################################################################################
 
 
