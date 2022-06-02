@@ -20,19 +20,20 @@ source('code/source/chipman.R') # for calc_chipForest_2 , calc_LL_for_selection
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
 # set test data by name : VA, Swiss or Hung
-data.test.name <-  'Hung'
+{data.test.name <-  'Swiss'
 data.test <-  get(data.test.name)
 attr(data.test,'data.test.name') <- data.test.name
+}
 
 #paste(rep(c('LL.test.chip.','I.'),4),rep(c('d0','d1','d2','sb'),each=2),sep='')
 
 # to base the result on more bootstraps
-folder <- 'data/nursery'
-files <- list.files(folder)#[1:2]
+folder <- 'data/nursery02'
+files <- list.files(folder)[1:2]
 # dir(folder)
 
 # give parameter for each dissimilarity
-parameter <- list('d0'=list('cutoff'=0.1, 'sizeSF'=5)
+parameter <- list('d0'=list('cutoff'=0.4, 'sizeSF'=5)
 , 'd1'=list('cutoff'=0.5, 'sizeSF'=5)
 ,'d2'=list('cutoff'=0.5, 'sizeSF'=1)
 ,'sb'=list('cutoff'=0.3, 'sizeSF'=5)
@@ -45,7 +46,7 @@ ct.f <-  1 # counter for the above collector
 for(file in files){
   # run loops over doc loaded from file
   load(paste(folder,file, sep='/')) # loads doc
-  collector.f[[ct.f]] <- calc_LL_for_selection(doc , parameter)
+  collector.f[[ct.f]] <- calc_LL_for_selection('chip1', doc , parameter['d0'])
   ct.f <-  ct.f+1
 }
 et02 <- data.frame(bind_rows(collector.f))

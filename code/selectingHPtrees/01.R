@@ -1,4 +1,4 @@
-# code / selectingHPtrees / 01.R
+# code / selectingHPtrees / hp.R
 # looping over simulations : selection strategy for the small forest:
 # select trees that perform best on OOB data from simulations
 
@@ -63,7 +63,8 @@ calc_LL_for_selection <- function(doc, sizeSF){
   # and then calculate logloss with subsets of pp
     
   evalT[i,] <- c(i
-                , calcLogloss(subforest(forest,1:sizeSF), data.test)
+                # , calcLogloss(subforest(forest,sample(1:forest$num.trees, sizeSF)), data.test)
+                 , calcLogloss(subforest(forest,1:sizeSF), data.test)
                 , calcLogloss( subforest(forest, hpst ), data.test)
                 , calcLogloss(forest, data.test)
                 )

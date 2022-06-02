@@ -17,7 +17,7 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
   represented <-  function(I){
     #' testing for representation of best I trees (R= dense representing forest = {1,..,I}) at level alpha
     #' 
-    #' uses dm2 and alpha from parent environment. i.e. function calc_chipForest_1
+    #' uses N, dm2 and alpha from parent environment. i.e. function calc_chipForest_1
     #' for I >1 , 
     #' representation by one tree alone can happen only at level of largest dissimilarity
     #' no representation by almost all trees (I==N-1) only if last tree, 
@@ -41,7 +41,6 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
     }
   }
   
-  # dm should be ordered
   dm2 <-  dm[oLL,oLL]
   
   N <-  nrow(dm2) # used to be min(nrow(dm2),N) , N would stop early as soon as N trees were selected into the dense representing subforest.
@@ -55,10 +54,11 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
   }else{I <- 1}
   # exits with smallest I with represented(I) TRUE
   
-  R <-  1:I # (dense) representing subforest , dense as all trees in the inbetween (from 1 to I) are in the subforest
+  R <-  1:I # (dense) representing subforest , dense as all trees inbetween (from 1 to I) are included in the subforest
   kOpt <-  NA
   multimod <- NA
   
+  # I will NOT be changed further down , R may be reduced by clustering
   # attempt clustering only if the representing forest is large (larger than 10)
   if(I>10){
     # attempting to cluster makes sense only for I relatively large. Larger than 10, say. 
@@ -68,7 +68,7 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
     # dm2 <-  dm2[1:I,1:I]
     # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
-    mds.dim <-  100
+    {mds.dim <-  100
     mp <- cmdscale(d=dm,k=mds.dim) # returns points
     mp[R,] %>% dist %>% as.matrix -> dm3 # trees in representing subforest R as elements in R^50, distance matrix for them
     
@@ -79,13 +79,16 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
       unlist %>%
       min %>% 
       (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
+    } # block to calculate multimod (should be a function! based on original dm)
   
     # cluster only if unimodality is rejected
     if(multimod){ # if hypothesis of unimodality is rejected : cluster
       #print('multimod')
       hc <- cluster::agnes(dm2, 
                          method="ward", # always optimal - whenever I did hpo
-                         diss=T)
+                         diss=T
+                         , keep.diss=F
+                         , keep.data=F)
     
       col1 <- list()
       # to check all feasible numbers of clusters : lapply(2:I-1) but we only want sizes between 5 and 50 (arbitrary! faster!) or I-1 if that is smaller than 50
@@ -102,7 +105,7 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
       if(max(col1)>0.2){
         col1 %>% 
           unlist %>% 
-          which.max + 4 -> kOpt # which returns a number b/w 5 and 50 (or I-1), we have to transform this back to the original range: 5 to 50 (or I-1)
+          which.max + 4 -> kOpt # which max returns a number in 1:(min(50,I-1)-4), we have to transform this back to the original range: 5 to 50 (or I-1)
 
         hc.clus <- cutree(hc, k = kOpt)
     
@@ -118,9 +121,10 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
         if(parameter$selection=='central'){
           lapply(1:kOpt,
              function(i){
-               x <-  which(hc.clus==i) # trees of cluster i
+               x <-  which(hc.clus==i) # trees of cluster i , based on dm2 , based on oLL
                lapply(1:length(x), 
-                      function(j){sum(dm[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
+                      # changed to dm2 in sum , used to be dm # 31.5.2022
+                      function(j){sum(dm2[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
                         unlist ) %>% 
                  which.min %>% # smallest sum of dissimilaritites
                  x[.] %>% # zugehöriges Element in x
@@ -264,7 +268,48 @@ calc_chipForest_2 <- function(dm , forest, oLL, parameter){
               , length(chipForest)))
 }
 
-grow_meinForest<- function(dm , LL, parameter){
+grow_chipForest_2 <- function(dm , forest, oLL, parameter, output=F){
+  #' grows the Chipman forest by adding diverse trees , Chipman 2
+  #' 
+  #' @param parameter is a list with items cutoff and sizeSF 
+  #'
+  #' returns the forest
+  
+  chipForest <- oLL[1] # start chipForest with the best tree
+  # loDiv <- quantile(dm,parameter$cutoff)  # old
+  loDiv<- quantile(dm[upper.tri(dm)],parameter$cutoff)
+  
+  # go through trees (ordered by performance) until sizeSF trees are collected / selected
+  for(I in 2:length(oLL)){
+    if(length(chipForest)==parameter$sizeSF){
+      I<-I-1
+      break
+    }else{
+      trindx <- oLL[I]
+      # if new tree far from (current) chipForest , add it to chipForest
+      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
+      if(min(dm[chipForest,trindx]) > loDiv){ # if adding trindex to R keeps it diverse: then add it
+        chipForest <- c(trindx, chipForest)
+      }
+    }
+  } # for exits with j the first index after all trees have been collected
+  parameter$represented <- I
+  return(list('forest'=chipForest, 'parameter'=parameter , 'type'='Chipman2'))
+}
+
+eval_chipForest_2 <-  function(dm , forest, oLL, parameter, output=F){
+  
+  cf2 <-  grow_chipForest_2(dm , oLL, parameter)
+  
+  chipForest <-  cf2$forest
+  I <- cf2$parameter$represented
+  
+  return(list(calcLogloss( subforest(forest, chipForest ), data.test)
+              , I
+              , length(chipForest))) 
+}
+
+grow_meinForest<- function(dm , LL, parameter, output=T){
   #' calculates the Meiner forest
   #' 
   #' @param parameter is a list with items cutoff and sizeSF 
@@ -280,6 +325,10 @@ grow_meinForest<- function(dm , LL, parameter){
   alpha <- quantile(dm[upper.tri(dm)], parameter$cutoff) # level of representation
   #print(cutoff)
   
+  if(output==T){
+    ct <- 1
+    doc.build <- list()
+  }
   # go through trees (ordered by performance) until sizeSF trees are collected / selected
   for(I in 2:length(oLL)){
     if(length(meinForest)==parameter$sizeSF){
@@ -288,7 +337,7 @@ grow_meinForest<- function(dm , LL, parameter){
     }else{
       trindx <- oLL[I]
       # if new tree far from (current) meinForest , add the best tree (lowest logloss) to the meinForest that represents trindx.
-      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
+      # if alpha==0 then each tree is added with certainty -> same as unimodal!
       
       if(min(dm[meinForest,trindx]) > alpha){ # if meinForest does not represent trindx
         allCandTrees <- base::setdiff(oLL[1:I], meinForest) # all candidate trees
@@ -296,8 +345,10 @@ grow_meinForest<- function(dm , LL, parameter){
           dm[.,trindx] %>%
           (function(x) which(x<=alpha)) %>% # a mask , for representation
           allCandTrees[.] -> closeCandTrees # candidates close to trindex
+        meinForest <- c(meinForest,closeCandTrees[[1]]) # order by LL is kept! index of best tree is first
         # if this is empty , add trindex!
-        if(length(closeCandTrees)==0){
+        # will never be empty! trindex is always in closeCandTrees , it has dissim 0
+        "if(length(closeCandTrees)==0){
           meinForest <- c(meinForest,trindx) # if nothing better can be found : add trindx
         }else{
           closeCandTrees %>%
@@ -305,24 +356,40 @@ grow_meinForest<- function(dm , LL, parameter){
             which.min %>%
             closeCandTrees[.] %>%
             c(meinForest) -> meinForest
+        }" # removed code if(closeCandTrees is empty) because it never is! # 31.5.2022
+        
+        if(output){
+          doc.build[[ct]] <-  list(LL=LL
+                                   , oLL=order(LL)
+                                   , I=I
+                                   , trindx=oLL[I]
+                                   , allCandTrees=allCandTrees
+                                   , closeCandTrees=closeCandTrees
+                                   , meinForest=meinForest)
+          ct <- ct+1
         }
-        #print(I)
-        #print(round(oLL[meinForest],4)[1:10])
-        #print(round(oLL[order(oLL[-meinForest])],4)[1:10])
-        #write.csv(c(I,round(oLL[meinForest],4)), file="./log.csv")
-        #write.csv(c(I,round(oLL[meinForest],4)), file="./log.csv")
-        # alternative to calc_chipForest :
-        # chipForest <- c(chipForest, trindx)
       }
     }
   } # for exits with I the first index after all trees have been collected
   # should be 500 for sizeSF=500 (unstopped Meiner) but may be smaller for sizeSF <500 (stopped Meiner)
+    
   parameter$represented <- I
-  return(list('forest'=meinForest, 'parameter'=parameter , 'type'='Meiner'))
+  doc.ret <- list(forest=meinForest
+                #  , represented = I
+                  , parameter=parameter
+                  , call='grow_meinForest'
+                  , type='Meiner')
+  
+  if(output==T){
+    doc.ret$progress <-  doc.build
+  }
+ 
+  return(doc.ret)
   }
 
 eval_meinForest <- function(dm , forest, LL, parameter){
   #' calls function to calculate the Meiner forest and evaluates it
+  #' returns logloss for data.test from parent directory
   
   mf <-  grow_meinForest(dm , LL, parameter)
   
@@ -343,6 +410,9 @@ calc_meinForest <- function(dm , forest, LL, parameter){
 calc_LL <- function(forest , data){
   #' calculate logloss for trees in forest,
   #' logloss evaluated on predictions on data
+  #' 
+  #' naming is bad, should be LL_for_all_trees or something. 
+  #' name calc_LL is too close to calc_LL_for_selection which is probably also not a good name ...
   
   pp <- predict(forest 
                 , data=data 
@@ -354,9 +424,7 @@ calc_LL <- function(forest , data){
              calcLogloss2( df=data ) %>% 
              unlist
          }) %>% 
-    unlist -> LL
-  
-  return(LL) # logloss for tree indices order as in forest
+    unlist 
 }
 
 calc_oLL <- function(forest , data){
@@ -402,8 +470,8 @@ calc_LL_for_selection <- function(method, doc, parameter){
   
   ct <- 1
   for(i in 1:nBs){
-    print(paste(i/nBs , Sys.time()))
-    #if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
+    #print(paste(i/nBs , Sys.time()))
+    if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
     
     DM <- doc[[i]]$DM
     

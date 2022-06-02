@@ -36,9 +36,10 @@ hpo <- function(method, parameter, data){
   
   # to base the result on more bootstraps
   folder <- 'data/nursery02'
-  files <- list.files(folder)#[1:1]
+  files <- list.files(folder)[1:2]
   # dir(folder)
   
+  # for the parameter : collector and counter
   collector.p <-  list()
   ct.p <-  1
   
@@ -76,7 +77,7 @@ method='chip1'
 ####################
 # chipman 1 simplified does not need a parameter. 
 # Multiple cutoff parameters just repeat the same code and give the same results.
-cutoff <- seq(0.1, 0.9, by=0.4)
+cutoff <- seq(0, 0.9, by=0.1)
 # setting sizeSF to the number of trees (500)  generates a Chipman forest 
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
@@ -92,13 +93,14 @@ if(method %in% c('chip1','chip1_simplified')){
 ######################
 res1 <- hpo(method=method
             , parameter=parameter
-            , data='Hung') # result
+            , data='Swiss'
+            ) # result
 
 et03 <- res1$et
 files <- res1$simulations
 
 # next run:
-# save(res1 , file='data/chipman/hpo_method_param*.rda')
+#save(res1 , file='data/chipman/hpo_method*.rda')
 # save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
@@ -257,4 +259,4 @@ points(x, et03$LL.test.chip.d2[1:N], type='l', col=3)
 points(x, et03$LL.test.chip.sb[1:N], type='l', col=4)
 legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 
-
+et03$LL.test.chip.d0 %>% hist(breaks=50)
