@@ -16,6 +16,7 @@ rm(list=ls())
 library(ranger)
 library(dplyr)
 library(xtable)
+library(caret)
 
 source('code/source/prep.R') # calcLogloss
 
@@ -25,6 +26,7 @@ with_simulation <-  F
 if(with_simulation){
   source('code/source/sim-prep-v2.R') # loads functions create_prob , new_bootstrap
   Cleve_enriched <- create_prob(Cleve)
+  # data train is built inside the loop, it is not constant
   }else{
   Cleve$CAD_fac <- NULL
   data.train <-  Cleve
@@ -86,7 +88,7 @@ LL <-  as.data.frame(LL)
 names(LL) <- nt
 
 boxplot(LL
-        , main=paste('logloss for forests of different sizes\n(trained on full Cleveland, tested on Swiss)') 
+        , main=paste('logloss for forests of different sizes\n(trained on', ifelse(with_simulation, 'simulated','full'),'Cleveland, tested on Swiss)') 
         , sub=paste('N=',nrow(LL),'(nr of observations per size)')
         , xlab= 'forest size , number of trees in forest'
         , ylab='logloss')
