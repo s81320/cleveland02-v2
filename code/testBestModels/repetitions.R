@@ -7,6 +7,7 @@ library(ranger)
 library(xtable)
 library(caret)
 library(dplyr)
+library(diptest)
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
@@ -80,34 +81,102 @@ plot(names(doc.bc)[-10]
      , ylab='sd logloss'
      , xlab='size regular small forest')
 
+
 ################################################################################
 #### testing Chipman and Meiner forests with parameters from hpo 
 ################################################################################
 
-test.models <-  list()
-test.models[[1]] <- list(method='meiner'
-                         , metric='sb'
-                         , parameter=list('cutoff'=0.1, 'sizeSF'=500))
-test.models[[2]] <- list(method='meiner'
+# test Chipman 2 for sizes of representing subforest around 50
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip2'
                          , metric='d0'
                          , parameter=list('cutoff'=0, 'sizeSF'=500))
-test.models[[1]] <- list(method='meiner'
-                         , metric='d1' # takes 10 hours to run!
-                         , parameter=list('cutoff'=0.1, 'sizeSF'=500))
-                         
-test.models[[1]] <- list(method='meiner'
-                         , metric='d0' 
-                         , parameter=list('cutoff'=0.5, 'sizeSF'=500))
-test.models[[2]] <- list(method='meiner'
-                         , metric='d2' 
-                         , parameter=list('cutoff'=0.7, 'sizeSF'=500))
-test.models[[1]] <- list(method='meiner'
-                         , metric='sb' 
-                         , parameter=list('cutoff'=0.6, 'sizeSF'=500))
-test.models[[2]] <- list(method='meiner'
-                         , metric='d1' # takes 10 hours to run!
-                         , parameter=list('cutoff'=0.8, 'sizeSF'=500))
+  test.models[[2]] <- list(method='chip2'
+                         , metric='d1'
+                         , parameter=list('cutoff'=0.3, 'sizeSF'=500))
+  test.models[[3]] <- list(method='chip2'
+                         , metric='d2'
+                         , parameter=list('cutoff'=0.4, 'sizeSF'=500))
+  test.models[[4]] <- list(method='chip2'
+                         , metric='sb'
+                         , parameter=list('cutoff'=0.4, 'sizeSF'=500))
+}
 
+# test Chipman 2 for sizes of representing subforest between 5 and 10
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip2'
+                           , metric='d0'
+                           , parameter=list('cutoff'=0.5, 'sizeSF'=500))
+  test.models[[2]] <- list(method='chip2'
+                           , metric='d1'
+                           , parameter=list('cutoff'=0.9, 'sizeSF'=500))
+  test.models[[3]] <- list(method='chip2'
+                           , metric='d2'
+                           , parameter=list('cutoff'=0.875, 'sizeSF'=500))
+  test.models[[4]] <- list(method='chip2'
+                           , metric='sb'
+                           , parameter=list('cutoff'=0.875, 'sizeSF'=500))
+}
+
+# second test for Chipman 2 , sizes 5 - 10
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip2'
+                           , metric='d2'
+                           , parameter=list('cutoff'=0.875, 'sizeSF'=500))
+  test.models[[2]] <- list(method='chip2'
+                           , metric='sb'
+                           , parameter=list('cutoff'=0.875, 'sizeSF'=500))
+}
+
+# test Meiner for best representing subforest 
+{
+  test.models[[1]] <- list(method='meiner'
+                         , metric='d0' 
+                         , parameter=list('cutoff'=0, 'sizeSF'=500))
+  test.models[[2]] <- list(method='meiner'
+                           , metric='d1' # takes 10 hours to run!
+                           , parameter=list('cutoff'=0.1, 'sizeSF'=500))
+  test.models[[3]] <- list(method='meiner'
+                         , metric='sb' 
+                         , parameter=list('cutoff'=0.1, 'sizeSF'=500))
+ 
+}
+
+
+# test Meiner forest for representing subforest of size between 5 and 10
+{
+  test.models[[1]] <- list(method='meiner'
+                           , metric='d0' 
+                           , parameter=list('cutoff'=0.5, 'sizeSF'=500))
+  test.models[[2]] <- list(method='meiner'
+                           , metric='d1' # takes 10 hours to run!
+                           , parameter=list('cutoff'=0.8, 'sizeSF'=500))
+  test.models[[3]] <- list(method='meiner'
+                           , metric='d2' 
+                           , parameter=list('cutoff'=0.7, 'sizeSF'=500))
+  test.models[[4]] <- list(method='meiner'
+                           , metric='sb' 
+                           , parameter=list('cutoff'=0.6, 'sizeSF'=500))
+}
+
+# test Meiner forest for representing subforest of sizes around 50
+{ test.models <-  list()
+"  test.models[[1]] <- list(method='meiner'
+                           , metric='d0' 
+                           , parameter=list('cutoff'=0, 'sizeSF'=500))
+  test.models[[2]] <- list(method='meiner'
+                           , metric='d1' # takes 10 hours to run!
+                           , parameter=list('cutoff'=0.2, 'sizeSF'=500))"
+  test.models[[1]] <- list(method='meiner'
+                           , metric='d2' 
+                           , parameter=list('cutoff'=0.2, 'sizeSF'=500))
+  test.models[[2]] <- list(method='meiner'
+                           , metric='sb' 
+                           , parameter=list('cutoff'=0.15, 'sizeSF'=500))
+}
 f1 <- function(method, metric, parameter, nLoops=100){
   #' build forest for given method and evaluate its performance
   #' 
@@ -118,7 +187,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
   #' uses data.train from parent environment to built the random forest
   #' uses attribute data.set.name of data sets data.train and data.test from parent environment to document results
   
-  if(method=='meiner'){
+  if(method %in% c('chip2','meiner')){
     doc <- matrix(rep(NA,4*nLoops), ncol=4)
   }else{
     doc <- matrix(rep(NA,3*nLoops), ncol=3)
@@ -129,7 +198,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
     rg <- ranger(CAD~.
                , data = data.train # from parent environment
                , num.trees = 500
-               , replace = F # T required for predictions ? Of cource we want predictions!
+               , replace = F # T required for predictions ? Of course we want predictions!
                , mtry= 3 # default : 3
                , importance = 'impurity'
                , probability = T 
@@ -167,7 +236,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
       unlist -> doc[i,]
     }
     
-    if(method=='meiner'){
+    if(method =='meiner'){
       mf <- grow_meinForest(dm=dm
                             , LL=LL
                             , parameter=parameter) # meiner forest
@@ -183,17 +252,31 @@ f1 <- function(method, metric, parameter, nLoops=100){
     }
     
     if(method=='chip2'){
-      print('not implemented')
-      return()
+      cf2 <- grow_chipForest_2(dm=dm
+                            , oLL= order(LL)
+                            , parameter=parameter) # chipman 2 forest
+      
+      sz <- ifelse(parameter$sizeSF==500,length(cf2$forest),parameter$sizeSF) # size
+      
+      doc[i,] <- c( calcLogloss(forest, data.test) # full forest
+                    , sz # size of (selected sub-) forest
+                    , calcLogloss(subforest(forest, cf2$forest), data.test) # logloss for (selecte sub-) forest
+                    # , calcLogloss(subforest(forest, 1:sz), data.test) # logloss for regular small forest of same size as (selected sub-) forest
+                    , calcLogloss(subforest(forest,sample(1:forest$num.trees, sz)), data.test) # make the regular small forest random
+      )
     }
   }
  
   doc <- data.frame(doc)
-  if(method=='meiner'){
+  if(method =='meiner'){
     names(doc) <- c('logloss.full.forest','size','logloss.meiner','logloss.base.case')
   }else{
-    doc <- doc[,c(1,3)]
-    names(doc) <- c('logloss.chip','size')
+    if(method=='chip2'){
+      names(doc) <- c('logloss.full.forest','size','logloss.chip2','logloss.base.case')
+    }else{
+      doc <- doc[,c(1,3)]
+      names(doc) <- c('logloss.chip','size')
+    }
   }
   
   return(list('res'=doc, 'call'=list(method=method
@@ -206,19 +289,22 @@ f1 <- function(method, metric, parameter, nLoops=100){
 # calling f1 on the models in test.models 
 # keeping results in list results
 results <-  list()
+# i <- 3
 for(i in 1:length(test.models)){
   results[[i]] <- f1(method=test.models[[i]]$method
      , metric=test.models[[i]]$metric 
      , parameter=test.models[[i]]$parameter
-     , nLoops=1000)
+     , nLoops=100)
 }
 
 test.case <- 1
 res.cal <- results[[test.case]]$call ; res.cal
 res.res <- results[[test.case]]$res
 
-apply(res.res,2,mean)
-apply(res.res,2,function(x) c(mean(x),sd(x)))
+#apply(res.res,2,mean)
+apply(res.res,2,function(x) c(mean(x),sd(x))) # %>% t %>% xtable -> xt
+#digits(xt) <-  4
+#xt
 
 {with.main <-  F
 if(with.main){
@@ -226,20 +312,21 @@ if(with.main){
 }else{
   par(mar=c(4,4,0,1)+0.1)
 }
-(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner']) %>% 
+  mthd <- res.cal$method
+  (res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')]) %>% 
   hist(xlab='logloss overshoot of base case'
-       , main=ifelse(with.main,'overshoot for regular small forest vs meiner forest','')
+       , main=ifelse(with.main,paste('overshoot for regular small forest vs', mthd , 'forest',sep=' '),'')
        , breaks=100)
 legend('topright',legend=c(res.cal$method, res.cal$metric , res.cal$parameter$cutoff))
 box()
 }
 
-dip.test(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner'])
-t.test(res.res[,'logloss.base.case'] - res.res[,'logloss.meiner'], alternative='greater')
+dip.test(res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')])
+t.test(res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')], alternative='greater')
 
 doc.tests <-  matrix(NA, nrow=length(results), ncol=4)
 for(r in 1:length(results)){
-  oversh <- results[[r]]$res[,'logloss.base.case'] - results[[r]]$res[,'logloss.meiner']
+  oversh <- results[[r]]$res[,'logloss.base.case'] - results[[r]]$res[,paste('logloss',mthd, sep='.')]
   tt <- t.test(oversh, alternative='greater')
   doc.tests[r,] <-  c(dip.test(oversh)$p.value 
                       , tt$p.value
@@ -414,9 +501,9 @@ f2 <- function(data.train, data.val , data.test, sz=50 , nLoops=100, returnLL = 
 }
 
 set.seed(1)
-res1 <- f2(data.train, data.val='OOB' , data.test, sz=50 , nLoops=1000, returnLL=T) # no validation data, just a strategy for creating the validation data from training or test data
+res1 <- f2(data.train, data.val='OOB' , data.test, sz=45 , nLoops=1000, returnLL=T) # no validation data, just a strategy for creating the validation data from training or test data
 #res1 <- f2(data.train=data.train , data.val=data.train , data.test=data.test, sz=50 , nLoops=100, returnLL=T) 
 res1$call
 res1$res %>% apply(2,function(x) c(mean(x),sd(x)))
-res1$corLL %>% apply(2,function(x) c(mean(x),sd(x)))
+# res1$corLL %>% apply(2,function(x) c(mean(x),sd(x)))
 
