@@ -3,7 +3,6 @@ print('sourcing c h i p m a n .R : functions for building and evaluating the sub
 grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
   #' grows the Chipman 1 forest ('core technique' in the paper by Chipman, George, McCollouch) 
   #'
-  #'
   #' needs data.test in parent environment
   #' @param parameter needs to have cutoff and selection
   #' @param output if TRUE the function outputs also the p-values of dip tests and the silhouette widths when clustering
@@ -126,7 +125,7 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
                       # changed to dm2 in sum , used to be dm # 31.5.2022
                       function(j){sum(dm2[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
                         unlist ) %>% 
-                 which.min %>% # smallest sum of dissimilaritites
+                 which.min %>% # smallest sum of dissimilarities
                  x[.] %>% # zugehöriges Element in x
                  oLL[.] # original index in default forest
                }
