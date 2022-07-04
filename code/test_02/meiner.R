@@ -144,7 +144,7 @@ test_meiner_forest_2 <- function(data, metric, r , nLoops=5){
   dp <- createDataPartition(data$CAD ,times = nLoops , p= 0.5) # dp : data partition
   doc <- data.frame(matrix(NA,nrow=nLoops, ncol=4))
   for(i in 1:nLoops){
-    if(i%%100==0){
+    if(i%%10==0){
       print(paste(i/nLoops , Sys.time()))
     }
     
@@ -201,30 +201,39 @@ test_meiner_forest_2 <- function(data, metric, r , nLoops=5){
 #### first test ####
 ####################
 
-doc.t <- test_meiner_forest(data=data.all , metric='d0', nLoops = 1000)
-res.doc <- list(parameter=list(metric='d0'
+doc.t <- test_meiner_forest(data=data.all , metric='d1', nLoops = 100)
+res.doc <- list(parameter=list(metric='d1'
                                , type='Meiner'
                                , criterion='lowest logloss on validation set')
                 , results=doc.t
                 , info=paste('training data is 50% of mixed Cleve, Hung. Code in'
                              , file_name_script)
 )
-save(res.doc , file='data/test_02/results-meiner-d0-1000.rda') # encode the metric!
+#save(res.doc , file='data/test_02/results-meiner-d1-10**.rda') # encode the metric!
+
+doc.t <-  res.doc$results[[1]]
 
 # give options on models to test directly
 doc.t %>% apply(2,function(x) c(mean(x),sd(x)))
 # doc.hp 
+doc.t[doc.t$rep.parameter>0,] %>% apply(2,function(x) c(mean(x),sd(x)))
 
-oversh <- doc.t[,4]-doc.t[,3]
+doc.t$rep.parameter %>% table
+
+doc.t %>% group_by(rep.parameter) %>% summarise(m=mean(size))
+
+
+oversh <- doc.t[,6]-doc.t[,5] # test with looking for optimal parameter
+oversh <- doc.t[,4]-doc.t[,3] # result of test_2 with fixed parameter
 par(mar=c(4,4,2,1)+0.1)
 hist(oversh, breaks=100) # looks multimodal?
-hist(oversh, breaks=10) # looks unimodal, bit skewed?
+# hist(oversh, breaks=10) # looks unimodal, bit skewed?
 
 # same as next line of code
 # with(doc.t[doc.t$size>40,] , doc.t$logloss.regular.small - doc.t$logloss.meiner)  %>% hist
 
-doc.t[doc.t$size>40,] %>%
-  with(hist(doc.t$logloss.regular.small - doc.t$logloss.meiner))
+doc.t[doc.t$rep.parameter>0,] %>%
+  with(hist(logloss.regular.small - logloss.meiner, breaks=20))
 
 # loop over all / some models to test
 # use expand grids to generate all combinations of parameters to be tested
@@ -238,7 +247,7 @@ for(i in 1:nrow(parameter)){
   print(parameter[i,])
   results[[i]] <- test_meiner_forest(data=data.all 
                                  , metric =parameter[i,1] 
-                                 , nLoops=100)
+                                 , nLoops=1000)
   results[[i]] %>% apply(2,function(x) c(mean(x),sd(x))) %>% t %>% xtable -> xt
   digits(xt) <-  4
   print(xt)
@@ -246,10 +255,10 @@ for(i in 1:nrow(parameter)){
 
 res.doc <- list(parameter=parameter
                 , results=results
-                , info=paste('training data is 60% of mixed Cleve, Swiss, Hung. Code in'
+                , info=paste('training data is 50% of mixed Cleve and Hung. Code in'
                              , file_name_script)
 )
-# save(res.doc , file='data/test_02/results-meiner-d0-d2-sb-100loops**.rda') # encode the metric!
+#save(res.doc , file='data/test_02/results-meiner-d0-d2-sb-50-25-25split-1000loops**.rda') # encode the metric!
 
 # strangely high correlation for d2 metric and meiner and regular small forest. How can that be??
 corrplot::corrplot(cor(results[[1]][c(1,3,5,6)]))
@@ -257,24 +266,36 @@ corrplot::corrplot(cor(results[[2]][c(1,3,5,6)]))
 corrplot::corrplot(cor(results[[3]][c(1,3,5,6)]))
 
 # how representation parameter explains size . Very reasonable!
-j <- 1
+j <- 3
 plot(results[[j]]$size~results[[j]]$rep.parameter, xlab='representation parameter', ylab='size')
 legend('topright', legend=c('d0','d2','sb')[j])
 
 # which representation parameters gave good results on the validation set?
 # when parameter > 0?!
 results[[j]]$rep.parameter[results[[j]]$rep.parameter>0]
-results[[3]]$rep.parameter %>% table
+results[[2]]$rep.parameter %>% table
 
 
 #################
 
-doc.t <- test_meiner_forest_2(data.all, 'sb' , 0.2 , nLoops = 1000)
-res.doc <- list(parameter=list(metric='sb'
+test_and_document <-  function(metric , rep.parameter, nLoops , filename='***.rda'){
+  
+  doc.t <- test_meiner_forest_2(data.all, metric , rep.parameter , nLoops)
+  res.doc <- list(parameter=list(metric=metric
                                , type='Meiner'
-                               , rep.parameter=0.2)
+                               , rep.parameter=rep.parameter)
                 , results=doc.t
-                , info=paste('training data is 60% of mixed Cleve, Swiss, Hung. Code in'
+                , info=paste('training data is 50% of mixed Cleveland and Hungary. Code in'
                              , file_name_script)
-)
-# save(res.doc , file='data/test_02/results-meiner-sb-02-1000loops.rda') # encode the metric!
+  )
+  save(res.doc , file=paste('data/test_02/results-meiner',metric,rep.parameter,nLoops,'loops*.rda', sep='-')) # encode the metric!
+  
+  doc.t %>% apply(2,function(x) c(mean(x),sd(x)))
+  
+  return(res.doc)
+}
+
+test_and_document(metric='d2'
+                  , rep.parameter=0.2
+                  , nLoops=10000
+                  , filename=paste('data/test_02/results-meiner',metric,rep.parameter,nLoops,'loops*x*.rda', sep='-'))
