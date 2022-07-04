@@ -38,7 +38,7 @@ source('code/source/prep.R')
 
 # load data from beginning of script (Cleve, Swiss, Hung)
 
-data.all <-  rbind(Cleve[,1:11], Swiss[,1:11], Hung[,1:11])
+data.all <-  rbind(Cleve[,1:11], Hung[,1:11])
 dim(data.all)
 
 test_hp_forest <- function(data.all, data.val, sz=50 , nLoops=100, returnLL = F){
@@ -46,7 +46,8 @@ test_hp_forest <- function(data.all, data.val, sz=50 , nLoops=100, returnLL = F)
   print(data.val)
   if(!(data.val %in% c('OOB','split'))){ print('data.val should be OOB or split.') ; return() }
   
-  dp <- createDataPartition(data.all$CAD ,times = nLoops , p= 0.6) # dp : data partition
+  set.seed(1)
+  dp <- createDataPartition(data.all$CAD ,times = nLoops , p= 0.5) # dp : data partition
   doc <- data.frame(matrix(NA,nrow=nLoops, ncol=4))
   for(i in 1:nLoops){
     data.train <- data.all[dp[[i]],]
@@ -109,7 +110,7 @@ test_hp_forest <- function(data.all, data.val, sz=50 , nLoops=100, returnLL = F)
 test_hp_forest(data.all , 'split' , nLoops = 10)
 
 # give options on models to test directly
-doc.hp <- test_hp_forest(data.all, data.val='OOB' ,sz=5 , nLoops=100 )
+doc.hp <- test_hp_forest(data.all, data.val='split' ,sz=5 , nLoops=1000 )
 doc.hp %>% apply(2,function(x) c(mean(x),sd(x)))
 # doc.hp 
 
@@ -134,7 +135,7 @@ for(i in 1:nrow(parameter)){
   results[[i]] <- test_hp_forest(data.all=data.all 
                                  , data.val=parameter[i,1] 
                                  , sz =parameter[i,2] 
-                                 , nLoops=10)
+                                 , nLoops=10000)
   results[[i]] %>% apply(2,function(x) c(mean(x),sd(x))) %>% t %>% xtable -> xt
   digits(xt) <-  4
   print(xt)
@@ -142,14 +143,20 @@ for(i in 1:nrow(parameter)){
 
 res.doc <- list(parameter=parameter
                 , results=results
-                , info=paste('training data is 60% of mixed Cleve, Swiss, Hung. Code in'
+                , info=paste('training data is 50% of mixed Cleve and Hung. Code in'
                              , file_name_script)
 )
-# save(res.doc , file='data/test_02/results-hp*.rda')
+# save(res.doc , file='data/test_02/results-hp-50-50split-of-Cleve-and-Hung-10000loops.rda')
 
 
 ################################################################################
 
 
+# t.test
 
+t.test(results[[1]]$`high performers` - results[[2]]$`high performers`, alternative = 'l')
+(results[[1]]$`high performers` - results[[2]]$`high performers`) %>% hist(breaks=50)
 
+t.test(results[[1]]$`high performers` - results[[1]]$`regular small`, alternative='l')
+
+t.test(results[[2]]$`high performers` - results[[2]]$`regular small`, alternative='l')
