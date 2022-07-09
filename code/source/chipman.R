@@ -1,6 +1,6 @@
 print('sourcing c h i p m a n .R : functions for building and evaluating the subforests as descriped in Chipman, Georg, McCollouch (1998), based on diversity and representation.')
 
-grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
+grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
   #' grows the Chipman 1 forest ('core technique' in the paper by Chipman, George, McCollouch) 
   #'
   #' needs data.test in parent environment
@@ -53,18 +53,18 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
   }else{I <- 1}
   # exits with smallest I with represented(I) TRUE
   
-  R <-  1:I # (dense) representing subforest , dense as all trees inbetween (from 1 to I) are included in the subforest
+  # corrected error 10.7.22: Used to be R <-  1:I
+  R <-  oLL[1:I] # (dense) representing subforest , dense as all trees inbetween (from best oLL[1] to I-th best oLL[I]) are included in the subforest
   kOpt <-  NA
   multimod <- NA
   
   # I will NOT be changed further down , R may be reduced by clustering
   # attempt clustering only if the representing forest is large (larger than 10)
-  if(I>10){
-    # attempting to cluster makes sense only for I relatively large. Larger than 10, say. 
+  if(length(R)>10){ # corrected 10.7.22 , used to be I>10
+    # attempting to cluster makes sense only for R relatively large. Larger than 10 trees, say. 
     # And number of cluster should be b/w 5 and 50? And not larger than I/4?
     # dissimilarity matrix needed only for R
-    dm2 <-  dm2[R,R] # using R # funny name in an R script ...
-    # dm2 <-  dm2[1:I,1:I]
+    dm2 <-  dm[R,R] # using R # funny name in an R script ...
     # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
     {mds.dim <-  100
@@ -73,7 +73,8 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
     
     # dip test for all trees in R (dense representing forest)
     #lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% # old code, replaced , 10.5.2022 , should run dip test on continuous data, on d0 , sb dip test will always reject hypothesis of unimodality because data is discreet
-    lapply(R , function(i) dip.test(dm3[i,-i], simulate=T)$p.value)  -> doc.pv # document intermediate results of p-values
+    # corrected 10.7.22 : used to be lapply(R, function...)
+    lapply(1:length(R) , function(i) dip.test(dm3[i,-i], simulate=T)$p.value)  -> doc.pv # document intermediate results of p-values
     doc.pv %>% 
       unlist %>%
       min %>% 
@@ -139,7 +140,7 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
                   , 'multimod'=multimod
                   , 'size.dense.representing.sf' = I
                   , 'parameter'=parameter
-                  , 'call'='grow_chipForest_1')
+                  , 'call'=list(name='grow_chipForest_1', mds.dim=mds.dim) )
   
   if(output){
     doc.ret$mds.dim <- mds.dim
@@ -152,9 +153,10 @@ grow_chipForest_1 <-  function(dm, forest , oLL, parameter, output=F){
   return(doc.ret)
 }
 
+
 eval_chipForest_1 <- function(dm , forest, oLL, parameter){
   
-  chip1 <- grow_chipForest_1(dm , forest, oLL, parameter)
+  chip1 <- grow_chipForest_1(dm , oLL, parameter)
   
   return(list('logloss'=calcLogloss( subforest(forest, chip1$forest ), data.test)
               , 'size.dense.representing.sf'= chip1$size.dense.representing.sf # I
@@ -267,7 +269,7 @@ calc_chipForest_2 <- function(dm , forest, oLL, parameter){
               , length(chipForest)))
 }
 
-grow_chipForest_2 <- function(dm , forest, oLL, parameter, output=F){
+grow_chipForest_2 <- function(dm , oLL, parameter, output=F){ # 7.7.22 : removed forest as an argument ; it is not neccessary amd not used...‚
   #' grows the Chipman forest by adding diverse trees , Chipman 2
   #' 
   #' @param parameter is a list with items cutoff and sizeSF 
