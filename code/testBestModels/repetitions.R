@@ -8,6 +8,7 @@ library(xtable)
 library(caret)
 library(dplyr)
 library(diptest)
+library(cluster)
 
 load('data/data_SupMat4.rda') # loads the data sets Cleve, Hung, Swiss, VA
 
@@ -86,6 +87,21 @@ plot(names(doc.bc)[-10]
 #### testing Chipman and Meiner forests with parameters from hpo 
 ################################################################################
 
+# test Chipman 1 
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip1'
+                           , metric='d0'
+                           , parameter=list('cutoff'=0, 'sizeSF'=500 , 'selection'='best'))
+  test.models[[2]] <- list(method='chip1'
+                           , metric='d0'
+                           , parameter=list('cutoff'=0.2, 'sizeSF'=500 , 'selection'='best'))
+  test.models[[3]] <- list(method='chip1'
+                           , metric='sb'
+                           , parameter=list('cutoff'=0.2, 'sizeSF'=500 , 'selection'='best'))
+
+}
+
 # test Chipman 2 for sizes of representing subforest around 50
 {
   test.models <-  list()
@@ -145,7 +161,6 @@ plot(names(doc.bc)[-10]
  
 }
 
-
 # test Meiner forest for representing subforest of size between 5 and 10
 {
   test.models[[1]] <- list(method='meiner'
@@ -177,6 +192,7 @@ plot(names(doc.bc)[-10]
                            , metric='sb' 
                            , parameter=list('cutoff'=0.15, 'sizeSF'=500))
 }
+
 f1 <- function(method, metric, parameter, nLoops=100){
   #' build forest for given method and evaluate its performance
   #' 
@@ -187,11 +203,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
   #' uses data.train from parent environment to built the random forest
   #' uses attribute data.set.name of data sets data.train and data.test from parent environment to document results
   
-  if(method %in% c('chip2','meiner')){
-    doc <- matrix(rep(NA,4*nLoops), ncol=4)
-  }else{
-    doc <- matrix(rep(NA,3*nLoops), ncol=3)
-  }
+  doc <- matrix(rep(NA,4*nLoops), ncol=4)
   
   for(i in 1:nLoops){
     if(i %% 10 == 0){ print(paste(i/nLoops, Sys.time())) }
@@ -212,9 +224,9 @@ f1 <- function(method, metric, parameter, nLoops=100){
 
     # use OOB observations for each tree to calculate the tree's logloss
     # prediction probabilities : pp
-    pp <- predict(forest 
-    , data=data.train 
-    , predict.all = T)$predictions[,2,] # dim 303 x 500
+    predict(forest
+            , data=data.train
+            , predict.all = T)$predictions[,2,] -> pp # dim 303 x 500
     
     # List of Loglosses : LL
     lapply(1:forest$num.trees
@@ -228,12 +240,18 @@ f1 <- function(method, metric, parameter, nLoops=100){
       unlist -> LL
     
     if(method=='chip1'){
-    calc_chipForest_1_enforce(forest=forest 
-                              , dm = dm
-                              , oLL= order(LL)
-                                #, oLL = calc_oLL(forest=forest, data=data.val)
-                              , parameter = parameter) %>% 
-      unlist -> doc[i,]
+    grow_chipForest_1(dm = dm
+                      , oLL= order(LL)
+                      #, oLL = calc_oLL(forest=forest, data=data.val)
+                      , parameter = parameter) -> cf1 
+    #print(cf1$forest)
+    
+    sz <- length(cf1$forest)
+      
+    c(calcLogloss(forest, data.test)
+      , sz
+      , calcLogloss(subforest(forest,cf1$forest), data.test)
+      , calcLogloss(subforest(forest, 1:sz), data.test)) -> doc[i,] 
     }
     
     if(method =='meiner'){
@@ -241,7 +259,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
                             , LL=LL
                             , parameter=parameter) # meiner forest
       
-      sz <- ifelse(parameter$sizeSF==500,length(mf$forest),parameter$sizeSF) # size
+      sz <- ifelse(parameter$sizeSF==500,length(mf$forest),parameter$sizeSF) # size # why so complicated ?? 7.7.2022
       
       doc[i,] <- c( calcLogloss(forest, data.test) # full forest
                     , sz # size of (selected sub-) forest
@@ -268,16 +286,18 @@ f1 <- function(method, metric, parameter, nLoops=100){
   }
  
   doc <- data.frame(doc)
-  if(method =='meiner'){
+  names(doc) <- c('logloss.full.forest','size',paste('logloss',method,sep='.'),'logloss.base.case')
+  "if(method =='meiner'){
     names(doc) <- c('logloss.full.forest','size','logloss.meiner','logloss.base.case')
   }else{
     if(method=='chip2'){
       names(doc) <- c('logloss.full.forest','size','logloss.chip2','logloss.base.case')
     }else{
-      doc <- doc[,c(1,3)]
-      names(doc) <- c('logloss.chip','size')
+      if(method=='chip1'){
+      names(doc) <- c('logloss.full.forest','size','logloss.chip1','logloss.base.case')
+      }
     }
-  }
+  }"
   
   return(list('res'=doc, 'call'=list(method=method
                                      , metric=metric
@@ -291,13 +311,15 @@ f1 <- function(method, metric, parameter, nLoops=100){
 results <-  list()
 # i <- 3
 for(i in 1:length(test.models)){
+  print(i)
+  print(Sys.time())
   results[[i]] <- f1(method=test.models[[i]]$method
      , metric=test.models[[i]]$metric 
      , parameter=test.models[[i]]$parameter
      , nLoops=100)
 }
 
-test.case <- 1
+test.case <- 5
 res.cal <- results[[test.case]]$call ; res.cal
 res.res <- results[[test.case]]$res
 

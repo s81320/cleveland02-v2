@@ -1,6 +1,12 @@
+# 6.7.2022
+
 # compare test result
 # which model is best?
-# plot success (=logloss) over size (=numer of trees)
+# plot success (=logloss) over size (=number of trees)
+
+# if all tests were documented in the same format
+# I could automate the data collection from the test results.
+# Sounds like a good plan?!
 
 
 res.test <- matrix(NA, ncol=5 , nrow=38)
@@ -32,7 +38,7 @@ res.test[10,] <- c(2,4,0.875,6.9,0.7558)
 {res.test[11,] <- c(3,1,0,49.9,0.4278)
 res.test[12,] <- c(3,2,0.1,69.1,0.4266)
 res.test[13,] <- c(3,4,0.1,69,0.4267)
-# res.test[14,] <-c(3,2,0.2,NA,NA) # Meiner , d1 , 0.2
+res.test[14,] <-c(3,2,0.2,41.3,0.4284) # Meiner , d1 , 0.2
 res.test[15,] <- c(3,3,0.2,44,0.4287)
 res.test[16,] <- c(3,4,0.15,48.4,0.4281)
 res.test[17,] <- c(3,1,0.5,5.7,0.5964)
@@ -66,6 +72,7 @@ res.test[36,] <- c(5,0,0,40,0.43224932)
 res.test[37,] <- c(5,0,0,45,0.43013630)
 res.test[38,] <- c(5,0,0,50,0.4289)}
 
+par(mar=c(4,4,0.5,0.5)+0.2)
 plot(res.test[,4:5]
      , xlab='size'
      , ylab='success'
@@ -75,12 +82,15 @@ legend('topright', legend=c('d0','d1','d2','Shannon-Banks','Chipman 1','Chipman 
 
 plot(res.test[res.test[,4]<11,4:5]
      , xlab='size'
-     , ylab='success'
+     , ylab='logloss'
      , col=res.test[res.test[,4]<11,1]
      , pch=res.test[res.test[,4]<11,2])
 
 plot(res.test[res.test[,4]>10 & res.test[,4]< 60,4:5]
      , xlab='size'
-     , ylab='success'
+     , ylab='logloss'
      , col=res.test[res.test[,4]>10 & res.test[,4]< 60,1]
      , pch=res.test[res.test[,4]>10 & res.test[,4]< 60,2])
+legend('topright', legend=c('d0','d1','d2','Shannon-Banks','Chipman 1','Chipman 2','Meiner','high performers','regular small'), col=c(1,1,1,1,1:5), pch=c(1:4,rep(15,5)))
+
+
