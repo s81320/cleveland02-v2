@@ -1,3 +1,4 @@
+#rm(list=ls())
 library(ranger)
 
 load('data/data_SupMat4.rda')
@@ -7,14 +8,19 @@ files <- list.files(folder)
 files %>% stringr::str_subset('.data') -> files # in alphabetical order!
 
 # get original data
-# run Cleve_preprocessing up to line 144 to get Cleve.data , Hung.data , ... before imputation
+# run code/prep/Cleve_preprocessing.R up to line 144 
+# to get Cleve.data , Hung.data , ... before imputation
 
 data.set.name <- 'Cleve.data'
 ds <- get(data.set.name)
 is.na(ds$STDepression) %>% table
 (ds$RestingBP==0) %>% which
 
-VA.data$RestingBP %>% hist
+
+Cleve.data$RestingBP %>% hist
+VA.data$RestingBP %>% hist # 1 value 0
+Swiss.data$RestingBP %>% hist
+Hung.data$RestingBP %>% hist
 
 #### ST depression
 

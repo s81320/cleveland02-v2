@@ -78,6 +78,7 @@ legend('topright', legend=metric, cex=0.8)
 # negative eigen values are errors 
 
 # focus
+par(mar=c(4,4,1,1)+0.2)
 plot(m$eig[1:60], xlab='dimension' , ylab='eigenvalue', type='l')
 abline(h=0, col='grey')
 legend('topright', legend=metric)
@@ -114,7 +115,7 @@ my_diptest <-  function(mp){
   doc.dip <-  rep(NA,nrow(mp))
   dm2 <- as.matrix(dist(mp))
   for(i in 1:nrow(dm2)){
-    doc.dip[i] <- dip.test(x=dm2[i,-i])$p.value 
+    doc.dip[i] <- diptest::dip.test(x=dm2[i,-i])$p.value 
   }
   plot(doc.dip
      , type='l'
@@ -132,6 +133,6 @@ my_diptest(mp)
 
 # diptest for representing subforest
 dim(mp)
-stress(dm[R,R], list(points=mp)) # poor stress
+stress(dm[R,R], list(points=mp)) # poor stress # WHICH PACKAGE ??
 
        
