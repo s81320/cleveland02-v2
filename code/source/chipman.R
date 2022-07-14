@@ -67,18 +67,19 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
     dm2 <-  dm[R,R] # using R # funny name in an R script ...
     # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
-    {mds.dim <-  100
-    mp <- cmdscale(d=dm,k=mds.dim) # returns points
-    mp[R,] %>% dist %>% as.matrix -> dm3 # trees in representing subforest R as elements in R^50, distance matrix for them
+    {
+      mds.dim <-  100
+      mp <- cmdscale(d=dm,k=mds.dim) # returns points in R^k
+      mp[R,] %>% dist %>% as.matrix -> dm3 # trees in representing subforest R as elements in R^50, distance matrix for them
     
-    # dip test for all trees in R (dense representing forest)
-    #lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% # old code, replaced , 10.5.2022 , should run dip test on continuous data, on d0 , sb dip test will always reject hypothesis of unimodality because data is discreet
-    # corrected 10.7.22 : used to be lapply(R, function...)
-    lapply(1:length(R) , function(i) dip.test(dm3[i,-i], simulate=T)$p.value)  -> doc.pv # document intermediate results of p-values
-    doc.pv %>% 
-      unlist %>%
-      min %>% 
-      (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
+      # dip test for all trees in R (dense representing forest)
+      #lapply(R , function(i) dip.test(dm2[i,-i], simulate=T)$p.value) %>% # old code, replaced , 10.5.2022 , should run dip test on continuous data, on d0 , sb dip test will always reject hypothesis of unimodality because data is discreet
+      # corrected 10.7.22 : used to be lapply(R, function...)
+      lapply(1:length(R) , function(i) dip.test(dm3[i,-i], simulate=T)$p.value)  -> doc.pv # document intermediate results of p-values
+      doc.pv %>% 
+        unlist %>%
+        min %>% 
+        (function(x) x<0.05) -> multimod # logical , TRUE if pvalue of at least one dip test less than 0.05
     } # block to calculate multimod (should be a function! based on original dm)
   
     # cluster only if unimodality is rejected
@@ -118,7 +119,7 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
           #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
           }
       
-        if(parameter$selection=='central'){
+       "if(parameter$selection=='central'){
           lapply(1:kOpt,
              function(i){
                x <-  which(hc.clus==i) # trees of cluster i , based on dm2 , based on oLL
@@ -131,6 +132,35 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
                  oLL[.] # original index in default forest
                }
           ) %>% unlist -> R
+        }" # old code , selects first (=best) element if trees are undistinguishable under given dissimilarity - needs random sampling!
+        if(parameter$selection=='central'){
+          lapply(1:kOpt, # i-th cluster
+                 function(i){
+                   tris.in.clus.i <-  which(hc.clus==i) # trees of cluster i , based on dm2 , based on oLL
+                   lapply(1:length(tris.in.clus.i), 
+                          # changed to dm2 in sum , used to be dm # 31.5.2022
+                          function(j){
+                            tri <- tris.in.clus.i[j]
+                            sum(dm2[tri,tris.in.clus.i])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
+                            unlist ) %>%
+                     #(function(x){
+                    #   print('dissimilarities')
+                    #   print(unlist(x))
+                    #   x}) %>%
+                     which.min -> center.clus.i # smallest sum of dissimilarities
+                 #  print(paste('center of cluster', i, ':', center.clus.i))
+                   # is x.i.central unique?
+                   center.indistinguishable <- which(dm2[tris.in.clus.i[center.clus.i],tris.in.clus.i]==0)
+                  # print(paste('# indistinguishable from central',length(center.indistinguishable)))
+                   # if not unique , select randomly from those undistinguishables , else we have the best performing by design but not intentionally
+                   if( center.indistinguishable %>% length > 0){
+                     center.clus.i <- sample(center.indistinguishable,1)
+                   }
+                   center.clus.i %>%
+                     tris.in.clus.i[.] %>% # associated element in cluster
+                     oLL[.] # original index in default forest
+                 }
+          ) %>% unlist -> R
         }
       }
     }
@@ -139,8 +169,7 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
   doc.ret <- list('forest'=R
                   , 'multimod'=multimod
                   , 'size.dense.representing.sf' = I
-                  , 'parameter'=parameter
-                  , 'call'=list(name='grow_chipForest_1', mds.dim=mds.dim) )
+                  , 'call'=list(name='grow_chipForest_1' , 'parameter'=parameter) )
   
   if(output){
     doc.ret$mds.dim <- mds.dim
@@ -156,7 +185,7 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
 
 eval_chipForest_1 <- function(dm , forest, oLL, parameter){
   
-  chip1 <- grow_chipForest_1(dm , oLL, parameter)
+  chip1 <- grow_chipForest_1(dm , oLL, parameter, output=F)
   
   return(list('logloss'=calcLogloss( subforest(forest, chip1$forest ), data.test)
               , 'size.dense.representing.sf'= chip1$size.dense.representing.sf # I
@@ -456,13 +485,14 @@ calc_oLL <- function(forest , data){
 }
 
 # name should change , it evaluates a packet of 50 simulations, it calcs the LL and sizes of forests of selected trees
-calc_LL_for_selection <- function(method, doc, parameter){
+calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # added metrices as optinal argument 14.7.2022
   #' gets arguments and calculates arguments needed for some inner function (funL) from doc
   #' then runs loops over the inner function (funL) for all metrices and all simulations (50) in doc
   #' 
   #' @param method specifies the inner function from a list of function (funL)
   #' @param parameter are parameters for function specified by method
   #' @param doc is the documentation of 50 simulations (forest, dissimilarity matrices, in-bag and OOB observations)
+  #' @param metrices is optional, if NULL then we use all metrices from the (named!) dissimilarity matrix in doc
   
   nBs <- length(doc)
   #nBs <- 5
@@ -486,7 +516,10 @@ calc_LL_for_selection <- function(method, doc, parameter){
     LL <- calc_LL(forest, data.set.val)
     oLL <- order(LL)
     
-    metrices <- names(DM)
+    if(is.null(metrices)){
+      metrices <- names(DM)
+    }
+    
     res <- list() # result from following loop
     
     # parameter will be used as a named list
