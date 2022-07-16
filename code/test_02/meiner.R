@@ -183,7 +183,8 @@ test_meiner_forest_2 <- function(data, metric, r , nLoops=5){
     ) %>% 
       unlist -> LL # LL created , no validation data needed
     
-    mf <-  grow_meinForest(dm, LL, parameter=list(cutoff=r, sizeSF=500), output = F)
+    #mf <-  grow_meinForest(dm, LL, parameter=list(cutoff=r, sizeSF=500), output = F)
+    mf <-  grow_chipForest_1_simplified(dm, order(LL), parameter=list(cutoff=r, sizeSF=5, selection='best'), output = F)
     forest.selected <- mf$forest
 
     sz <-  length(forest.selected)
@@ -201,9 +202,10 @@ test_meiner_forest_2 <- function(data, metric, r , nLoops=5){
 #### first test ####
 ####################
 
-doc.t <- test_meiner_forest(data=data.all , metric='d1', nLoops = 100)
-res.doc <- list(parameter=list(metric='d1'
-                               , type='Meiner'
+doc.t <- test_meiner_forest_2(data=data.all , metric='d0', nLoops = 2)
+doc.t <- test_meiner_forest_2(data=data.all , metric='d0', r=0.3, nLoops = 10)
+res.doc <- list(parameter=list(metric='d0'
+                               , type='Chip1_simplified'
                                , criterion='lowest logloss on validation set')
                 , results=doc.t
                 , info=paste('training data is 50% of mixed Cleve, Hung. Code in'

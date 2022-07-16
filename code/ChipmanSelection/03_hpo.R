@@ -25,9 +25,9 @@ Swiss <- Swiss[,1:11]
 source('code/source/prep.R') # calcLogloss (on forests) , calcLogloss2 (on predicted probabilities)
 source('code/source/subforest.R') # subforest
 source('code/source/chipman.R') # for calc_chipForest_2 , calc_LL_for_selection
+source('code/source/chipman2.R') # for modification of Chipman 1 : cluster into externally specified number of clusters, regardless of unimodality
 
-
-hpo <- function(method, parameter, data){
+hpo <- function(method, parameter, data, metrices=NULL){
   
   data.test <<- get(data) # data should be a variable name , character string 
   # get data from parent environment
@@ -44,7 +44,7 @@ hpo <- function(method, parameter, data){
   ct.p <-  1
   
   for(p in 1:nrow(parameter)){
-    #print(paste('parameter ', p ,'at', Sys.time()))
+    print(paste('parameter ', p ,'of', nrow(parameter),'at', Sys.time()))
     
     collector.f <-  list()
     ct.f <-  1 # counter for the above collector 
@@ -54,11 +54,14 @@ hpo <- function(method, parameter, data){
       #print( parameter[p,])
       collector.f[[ct.f]] <- calc_LL_for_selection(method=method
                                                    , doc=doc 
-                                                   , parameter=parameter[p,])
+                                                   , parameter=parameter[p,]
+                                                   , metrices=metrices)
       ct.f <-  ct.f+1
     }
     
-    apply(bind_rows(collector.f),2,mean) %>% # remove NA before taking the mean??
+    collector.f %>%
+      bind_rows %>%
+      apply(2,mean) %>% # remove NA before taking the mean??
       c(parameter[p,]) %>% 
       unlist -> 
       collector.p[[ct.p]]
@@ -71,7 +74,8 @@ hpo <- function(method, parameter, data){
          )
 }
 
-method='chip1'
+#method='chip2'
+method <- 'chip1_simplified'
 
 #### build parameter
 ####################
@@ -82,10 +86,16 @@ cutoff <- seq(0, 0.9, by=0.1)
 # that only stops when all trees are represented (at the specified level)
 # cutoff 0 means only trees with minimal dissim represent each other. 
 # Happens for some trees under d0, happens for exactly 2 trees (0r 3,4?? few!) under d1,d2,sb
-sizeSF <- rep(500,length(cutoff))
+
+if(method %in% c('chip1_simplified')){
+  sizeSF <- rep(5,length(cutoff))
+}else{
+  sizeSF <- rep(500,length(cutoff))
+}
+  
 parameter <-  data.frame(cbind(cutoff, sizeSF))
 
-if(method %in% c('chip1','chip1_simplified')){
+if(method %in% c('chip1', 'chip1_simplified')){
   parameter$selection <- rep('central',length(cutoff))
 }
 
@@ -94,13 +104,14 @@ if(method %in% c('chip1','chip1_simplified')){
 res1 <- hpo(method=method
             , parameter=parameter
             , data='Swiss'
+           #, metrices=c('d0','d1')
             ) # result
 
 et03 <- res1$et
 files <- res1$simulations
 
 # next run:
-#save(res1 , file='data/chipman/hpo_method*.rda')
+# save(res1 , file='data/chipman/hpo_chip1_enforce_5_central*.rda')
 # save(hpo_mei_stopped_5 , file='data/hpo_mei_stopped_5trees*.rda')
 # load('data/chipman/hyperparameter_cutoff_50trees.rda')
 
@@ -110,8 +121,14 @@ xtb.ch2
 
 # if neccessary , for chipman 1 with selection as character -> all columns are character
 # exclude selection column in names(et03)
-for(nam in names(et03)){
-  et03[,nam] <- as.numeric(et03[,nam])
+{
+  X <- et03
+  #X <- et.central
+  for(nam in names(X)){
+    if(nam!='selection')X[,nam] <- as.numeric(X[,nam])
+  }
+  #et.central <- X
+  et03 <- X
 }
 
 {
@@ -141,29 +158,32 @@ for(nam in names(et03)){
   legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
 }
 
-et03.s <- et03 %>% select(tidyr::starts_with('I'))
-ylim <- range(et03.s)
-plot(cutoff
+{
+  et03.s <- et03 %>% select(tidyr::starts_with('I'))
+  ylim <- range(et03.s)
+  par(mar=c(4,4,3,1)+0.1)
+  plot(cutoff
      , et03.s[,1]
      , type='l'
      , main=paste('Chipman forests \n(method', res1$call$method , ' , ' , 50*length(files), 'simulations)')
      , ylim=ylim
      , xlab='representation parameter (quantile of dissimilarity)' 
-     , ylab='representing trees')
-#points(cutoff[wm], et03.s[wm,1],col=1, pch=19 )
-for(k in 2:4){
-  points(cutoff
+     , ylab='size dense representing subforest')
+  #points(cutoff[wm], et03.s[wm,1],col=1, pch=19 )
+  for(k in 2:4){
+    points(cutoff
          , et03.s[,k]
          , type='l'
          , col=k)
- # points(cutoff[wm], et03.s[wm,k],col=k, pch=19 )
-}
-legend( 'topright'
-  #'bottomright'
+  # points(cutoff[wm], et03.s[wm,k],col=k, pch=19 )
+  }
+  legend( 'topright'
+    #'bottomright'
        , legend=c('d0','d1','d2','sb') 
        , pch=1
        , col=1:4
        , cex=0.8)
+}
 
 # plot for sizes over parameter
 metrices <- c('d0','d1','d2','sb')
@@ -220,30 +240,32 @@ metrices <- c('d0','d1','d2','sb')
 
 # plot logloss over size
 # must be some kind of smoothing of the many pairs of (size, logloss) we generate over the 100 or 1000 simulations
-
-par(mar=c(4,4,3,1)+0.1)
-ylim <-  range(et03 %>% select(starts_with('LL')))
-plot(et03$cutoff
+{
+  par(mar=c(4,4,3,1)+0.1)
+  ylim <-  range(et03 %>% select(starts_with('LL')))
+  plot(et03$cutoff
      , et03$LL.test.chip.d0
      , type='l'
      , ylim=ylim 
      , xlab='representation parameter (quantile of dissimilarity)' 
      , ylab='logloss'
      , main=paste('Chipman forest\n(method', res1$call$method , ')', sep=' ')
-)
-points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
-points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
-points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
-legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+  )
+  points(et03$cutoff, et03$LL.test.chip.d1, type='l', col=2)
+  points(et03$cutoff, et03$LL.test.chip.d2, type='l', col=3)
+  points(et03$cutoff, et03$LL.test.chip.sb, type='l', col=4)
+  legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+}
 
 # zoom in
-par(mar=c(4,4,1,1)+0.1)
-# par(mar=c(4,4,3,1)+0.1)
-N <- 6 # number of parameters in plot
-ylim <-  range(et03[1:N,] %>% select(starts_with('LL')))
-x <- et03$cutoff[1:N]
-y <- et03$LL.test.chip.d0[1:N]
-plot(x
+{
+  par(mar=c(4,4,1,1)+0.1)
+  # par(mar=c(4,4,3,1)+0.1)
+  N <- 6 # number of parameters in plot
+  ylim <-  range(et03[1:N,] %>% select(starts_with('LL')))
+  x <- et03$cutoff[1:N]
+  y <- et03$LL.test.chip.d0[1:N]
+  plot(x
      , y
      , type='l'
      , ylim=ylim 
@@ -251,12 +273,14 @@ plot(x
      , xlab='representation parameter (quantile of dissimilarity)'
      , ylab='logloss'
      , axes =F )
-axis(1)
-axis(2 , at=seq(round(min(ylim),2),round(max(ylim),2),by=0.01))
-box()
-points(x, et03$LL.test.chip.d1[1:N], type='l', col=2)
-points(x, et03$LL.test.chip.d2[1:N], type='l', col=3)
-points(x, et03$LL.test.chip.sb[1:N], type='l', col=4)
-legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+  axis(1)
+  axis(2 , at=seq(round(min(ylim),2),round(max(ylim),2),by=0.01))
+  box()
+  points(x, et03$LL.test.chip.d1[1:N], type='l', col=2)
+  points(x, et03$LL.test.chip.d2[1:N], type='l', col=3)
+  points(x, et03$LL.test.chip.sb[1:N], type='l', col=4)
+  legend('topleft', legend=c('d0','d1','d2','sb') , pch=1, col=1:4 , cex=0.8)
+}
 
 et03$LL.test.chip.d0 %>% hist(breaks=50)
+

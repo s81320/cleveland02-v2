@@ -1,5 +1,6 @@
 print('sourcing c h i p m a n .R : functions for building and evaluating the subforests as descriped in Chipman, Georg, McCollouch (1998), based on diversity and representation.')
 
+# functions to be called inside calc_LL_for selection
 grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
   #' grows the Chipman 1 forest ('core technique' in the paper by Chipman, George, McCollouch) 
   #'
@@ -64,7 +65,7 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
     # attempting to cluster makes sense only for R relatively large. Larger than 10 trees, say. 
     # And number of cluster should be b/w 5 and 50? And not larger than I/4?
     # dissimilarity matrix needed only for R
-    dm2 <-  dm[R,R] # using R # funny name in an R script ...
+    dm2 <-  dm[R,R] # same as dm[oLL[1:I],oLL[1:I]]
     # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
   
     {
@@ -85,9 +86,9 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
     # cluster only if unimodality is rejected
     if(multimod){ # if hypothesis of unimodality is rejected : cluster
       #print('multimod')
-      hc <- cluster::agnes(dm2, 
-                         method="ward", # always optimal - whenever I did hpo
-                         diss=T
+      hc <- cluster::agnes(dm2 
+                         , method="ward" # always optimal - whenever I did hpo
+                         , diss=T
                          , keep.diss=F
                          , keep.data=F)
     
@@ -169,6 +170,7 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
   doc.ret <- list('forest'=R
                   , 'multimod'=multimod
                   , 'size.dense.representing.sf' = I
+                  , 'alpha'= alpha
                   , 'call'=list(name='grow_chipForest_1' , 'parameter'=parameter) )
   
   if(output){
@@ -182,7 +184,6 @@ grow_chipForest_1 <-  function(dm, oLL, parameter, output=F){
   return(doc.ret)
 }
 
-
 eval_chipForest_1 <- function(dm , forest, oLL, parameter){
   
   chip1 <- grow_chipForest_1(dm , oLL, parameter, output=F)
@@ -195,108 +196,134 @@ eval_chipForest_1 <- function(dm , forest, oLL, parameter){
   )
 }
 
-
-# functions to be called inside calc_LL_for selection
 calc_chipForest_1 <- function(dm, forest , oLL, parameter){ 
   return(eval_chipForest_1(dm , forest, oLL, parameter)) 
 }
  
-
-calc_chipForest_1_enforce <- function(dm, oLL, forest, parameter){ 
-
-  if('select' %in% names(parameter)){
-    if(parameter$select=='best'){
-      selectBestTree <-  TRUE
-      selectCentralTree <-  FALSE
+grow_chipForest_1_simplified <-  function(dm, oLL, parameter, output=F){
+  #' grows the Chipman 1 forest ('core technique' in the paper by Chipman, George, McCollouch) enforcing clustering with a fixed number of clusters
+  #'
+  #' needs data.test in parent environment
+  #' @param dm full dissimilarity matrix to calculate the level of representation via quantils 
+  #' @param parameter needs to have cutoff, selection, sizeSF
+  #' @param output if TRUE the function outputs also ...
+  
+  #print(dim(dm))
+  #print(pa)
+  
+  sizeSF <-  parameter$sizeSF
+  # level of representation , remove the diagonal, it has only 0 values
+  alpha <- quantile(dm[upper.tri(dm)],parameter$cutoff) # diagonal with all values 0 not included
+  #oLL <-  order(LL)
+  
+  represented <-  function(I){
+    #' testing for representation of best I trees (R= dense representing forest = {1,..,I}) at level alpha
+    #' 
+    #' uses N, dm2 and alpha from parent environment. i.e. function calc_chipForest_1
+    #' for I >1 , 
+    #' representation by one tree alone can happen only at level of largest dissimilarity
+    #' no representation by almost all trees (I==N-1) only if last tree, 
+    #' index N, is far away from all others, further than cutoff
+    #assertthat::assert_that(class(I)=='numeric', 'argument I has to be numeric') %>% print
+    #assertthat::assert_that( (I >0) , 'I must be at least 1 and at most one less than trees in forest') %>% print
+    
+    if(I==1){ # max
+      dm2[1,2:N] %>% max %>%
+        (function(x){x<=alpha}) 
+    }else{
+      if(I==N-1){ # min
+        dm2[1:(N-1),N] %>% min %>%
+          (function(x){x<=alpha})
+      }else{ # min and max
+        dm2[1:I,(I+1):N] %>%
+          apply(2,min) %>% # not working for I = 1 or I=N-1
+          max %>%
+          (function(x){x<=alpha})
       }
-    if(parameter$select=='central'){
-      selectCentralTree <-  TRUE
-     selectBestTree <- FALSE
-      }
+    }
+  }
+  
+  dm2 <-  dm[oLL,oLL]
+  
+  N <-nrow(dm2) # used to be min(nrow(dm2),N) , N would stop early as soon as N trees were selected into the dense representing subforest.
+  # But this function is for the original approach of the Chipmen, and they would not have done early stopping.
+  
+  if(alpha<max(dm2)){
+    I <- 2
+    while((I<N) && !represented(I)){
+      I <- I+1
+    }
+  }else{I <- 1}
+  # exits with smallest I with represented(I) TRUE
+  
+  # corrected error 10.7.22: Used to be R <-  1:I
+  R <-  oLL[1:I] # (dense) representing subforest , dense as all trees inbetween (from best oLL[1] to I-th best oLL[I]) are included in the subforest
+  
+  # I will NOT be changed further down , R may be reduced by clustering
+  # attempt clustering only if the representing forest is large (larger than 10)
+  if(length(R)>sizeSF){ # cluster only if you got more than you want!
+    # attempting to cluster makes sense only for R relatively large. Larger than 10 trees, say. 
+    # And number of cluster should be b/w 5 and 50? And not larger than I/4?
+    # dissimilarity matrix needed only for R
+    dm2 <-  dm[R,R] # using R # funny name in an R script ...
+    # which 2 trees are meant in dm2[1,2] ?? the best and the second best , indexed oLL[1], oLL[2]
+    
+    # always cluster
+    cluster::pam(x=dm2
+                 , k=sizeSF
+                 , diss=T
+                 , medoids = 1:sizeSF # start with the best trees as medoids
+                 , cluster.only=F # if T, are medoids returned? We need them!
+    ) -> pam.clus
+    
+    # from each cluster select the tree with the smallest logloss (on OOB data)
+    if(parameter$selection=='best'){
+      lapply(1:sizeSF,function(i) which(pam.clus$clustering==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
+        # oLL to go back to original index
+        unlist -> cf # representing subset
+      # if indices were not ordered, we'd do 
+      #lapply(1:sizeSF,function(i) which(pam.clus$clustering==i) %>% min ) %>% unlist -> cf.alt
+    }
+    
+    if(parameter$selection=='central'){
+      pam.clus$medoids -> cf
+    }
+    
   }else{
-    selectBestTree <-  TRUE # default
-    selectCentralTree <- FALSE
+    cf <-  R
+  } # if more trees than needed for sizeSF
+  
+  
+  doc.ret <- list('forest'=cf
+                  , 'size.dense.representing.sf' = I
+                  , 'alpha'= alpha
+                  , 'call'=list(name='grow_chipForest_1b' , 'parameter'=parameter) )
+  
+  if(output){
+    doc.ret$pam.sizes <- 1 # cluster sizes would be interesting to know
+    doc.ret$quality <- 2 # some kind of quality measure would be good to know
   }
   
-  sizeSF <- parameter$sizeSF
+  return(doc.ret)
+}
+
+eval_chipForest_1_simplified <-  function(dm , forest, oLL, parameter, output=F){
+  cf1b <-  grow_chipForest_1_simplified(dm , oLL, parameter)
   
-  # dissimilarity matrix needed only for R
-  dm2 <-  dm[oLL[1:250],oLL[1:250]] # select the better half of trees
+  chipForest <-  cf1b$forest
   
-  hc <- cluster::agnes(dm2, 
-                       method="ward", # always optimal - whenever I did hpo
-                       diss=T)
-  
-  if((sizeSF >= 1) && (sizeSF <=250)){
-    hc.clus <- cutree(hc, k = sizeSF)
-  }else{
-    print('sizeSF needs to be between 1 and 250.')
-    break
-  }
-  
-  # from each cluster select the tree with the smallest logloss (on OOB data)
-  if(selectBestTree){
-    lapply(1:sizeSF,function(i) which(hc.clus==i)[1] %>% oLL[.]) %>% # we take the first, because indices are ordered, first is smallest
-      # oLL to go back to original index
-      unlist -> R # representing subset
-    # if indices were not ordered, we'd do 
-    #lapply(1:sizeSF,function(i) which(hc.clus==i) %>% min ) %>% unlist
-  }
-  
-  if(selectCentralTree){
-    lapply(1:sizeSF,
-           function(i){
-             x <-  which(hc.clus==i) # trees of cluster i
-             lapply(1:length(x), 
-                    function(j){sum(dm[x[j],x])} %>% # sum of dissimilarities to all other trees in the same cluster (cluster i)
-                      unlist ) %>% 
-               which.min %>% # smallest sum of dissimilaritites
-               x[.] %>% # zugehöriges Element in x
-               oLL[.] # original index in default forest
-           }
-    ) %>% unlist -> R
-  }
-  
-  return(list(calcLogloss( subforest(forest, R ), data.test)
-              , NA
-              , sizeSF
-  )
-  )
+  #print('eval_chipForest_1_simplified will return')
+  #print(list(calcLogloss( subforest(forest, chipForest ), data.test)
+  #           , cf1b$size.dense.representing.sf # I
+  #           , length(chipForest)))
+  return(list(calcLogloss( subforest(forest, chipForest ), data.test)
+              , cf1b$size.dense.representing.sf # I
+              , length(chipForest))) 
 }
 
 calc_chipForest_2 <- function(dm , forest, oLL, parameter){
-  #' calculates the Chipman forest by adding diverse trees , Chipman 2
-  #' 
-  #' @param parameter is a list with items cutoff and sizeSF 
-  #'
-  #' returns its logloss on data.test (from higher environment)
-  #' returns the rank of the last inspected tree (or the index +1 , like 6 when collecting the first 5 trees)
-  #' returns the number of trees in the Chipman forest (enforced to be parameters$sizeSF or smaller)
-  
-  chipForest <- oLL[1] # start chipForest with the best tree
-  # loDiv <- quantile(dm,parameter$cutoff)  # old
-  loDiv<- quantile(dm[upper.tri(dm)],parameter$cutoff)
-
-  #print(paste('level of diversity=',loDiv))
-  
-  # go through trees (ordered by performance) until sizeSF trees are collected / selected
-  for(I in 2:length(oLL)){
-    if(length(chipForest)==parameter$sizeSF){
-      I<-I-1
-      break
-    }else{
-      trindx <- oLL[I]
-      # if new tree far from (current) chipForest , add it to chipForest
-      # if cutoff =0 then each tree is added with certainty -> same as unimodal!
-      if(min(dm[chipForest,trindx]) > loDiv){ # if adding trindex to R keeps it diverse: then add it
-        chipForest <- c(chipForest, trindx)
-      }
-    }
-  } # for exits with j the first index after all trees have been collected
-  return(list(calcLogloss( subforest(forest, chipForest ), data.test)
-              , I
-              , length(chipForest)))
-}
+  #' old name for function to grow and evaluate a Chipman 2 forest.
+  eval_chipForest_2(dm , forest, oLL, parameter, output=F)}
 
 grow_chipForest_2 <- function(dm , oLL, parameter, output=F){ # 7.7.22 : removed forest as an argument ; it is not neccessary amd not used...‚
   #' grows the Chipman forest by adding diverse trees , Chipman 2
@@ -323,7 +350,7 @@ grow_chipForest_2 <- function(dm , oLL, parameter, output=F){ # 7.7.22 : removed
       }
     }
   } # for exits with j the first index after all trees have been collected
-  parameter$represented <- I
+  parameter$size.dense.representing.sf <- I # former, misleading name : parameter$represented : all trees are represented!
   return(list('forest'=chipForest, 'parameter'=parameter , 'type'='Chipman2'))
 }
 
@@ -332,7 +359,7 @@ eval_chipForest_2 <-  function(dm , forest, oLL, parameter, output=F){
   cf2 <-  grow_chipForest_2(dm , oLL, parameter)
   
   chipForest <-  cf2$forest
-  I <- cf2$parameter$represented
+  I <- cf2$parameter$size.dense.representing.sf
   
   return(list(calcLogloss( subforest(forest, chipForest ), data.test)
               , I
@@ -432,8 +459,7 @@ eval_meinForest <- function(dm , forest, LL, parameter){
 }
 
 calc_meinForest <- function(dm , forest, LL, parameter){
-  #' calls function to calculate the Meiner forest and evaluates it
-
+  #' calls function to grow the Meiner forest and evaluates it
   return(eval_meinForest(dm , forest, LL, parameter)) 
   }
 
@@ -497,7 +523,22 @@ calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # adde
   nBs <- length(doc)
   #nBs <- 5
   
-  evalT <- matrix(NA,nrow=nBs,ncol=12) # table of evaluations
+  DM <- doc[[1]]$DM
+  if(is.null(metrices)){
+    # no metrices given : use those / all for which we have a dissimilarity matrix
+    metrices <- names(DM)
+  }else{
+    # metrices given : check that we have a dissimilarity matrix for each given metric
+    assertthat::assert_that(all( metrices %in% names(DM) ) 
+                            , msg=paste('passed/required metrices'
+                              , paste(metrices,collapse=',')
+                              ,'do not exist in doc[[1]]$DM: '
+                              , paste(names(DM), collapse=',')
+                              )
+                            )
+  }
+  
+  evalT <- matrix(NA,nrow=nBs,ncol=3*length(metrices)) # table of evaluations
   
   ct <- 1
   for(i in 1:nBs){
@@ -505,6 +546,7 @@ calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # adde
     if(i%%10 ==0) print(paste(i/nBs , Sys.time()))
     
     DM <- doc[[i]]$DM
+    assertthat::assert_that(all( metrices %in% names(DM) ), msg='not all passed metrices found in names of dissimilarity matrices, cf DM')
     
     forest <- doc[[i]]$rg$forest
     
@@ -515,10 +557,6 @@ calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # adde
     
     LL <- calc_LL(forest, data.set.val)
     oLL <- order(LL)
-    
-    if(is.null(metrices)){
-      metrices <- names(DM)
-    }
     
     res <- list() # result from following loop
     
@@ -542,13 +580,17 @@ calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # adde
     }
     
     # check for required format of named list with same names as the dissimilarity matrices
-    assertthat::assert_that(all(names(parameter) == names(DM))
-                            , msg = 'names for parameter and names for dissimilarity matrices do not match.')
+    assertthat::assert_that(all(names(parameter) %in% names(DM))
+                            , msg = 'names for dissimilarities in parameter do not match names in dissimilarity matrices.')
+    
+    #print(parameter)
     
     funL <- list('meiner'=calc_meinForest
          ,'chip1'=calc_chipForest_1
          , 'chip2'=calc_chipForest_2
-         , 'chip1_simplified'=calc_chipForest_1_enforce)
+        #, 'chip2'=eval_chipForest_2
+         , 'chip1_simplified'=eval_chipForest_1_simplified
+        )
     
     for(metric in metrices){
       argsL <-  list('meiner'=list(dm=DM[[metric]], forest=forest, LL=LL, parameter=parameter[[metric]])
@@ -559,12 +601,19 @@ calc_LL_for_selection <- function(method, doc, parameter, metrices=NULL){ # adde
                               , argsL[[method]]
                               )
     }
+    #print('dim of evaluation table')
+    #print(evalT %>% dim)
+    #print('length of result')
+    #print(unlist(res) %>% length)
     
     evalT[i,] <- unlist(res)
   }
   
   evalT <-  data.frame(evalT)
-  names(evalT) <- c(paste(rep(c('LL.test.chip.','I.','size.'),4),rep(c('d0','d1','d2','sb'),each=3),sep=''))
+  names(evalT) <- c(paste(rep(c(paste('LL.test.', method,'.', sep=''),'I.','size.'),times=length(metrices))
+                          #,rep(c('d0','d1','d2','sb'),each=3),sep='') # ok for metrices=NULL, and metrices==names(DM)==c('d0','d1','d2','sb')
+                          ,rep(metrices,each=3),sep='')
+                          )
   return(evalT)
 }
 # returns 12 columns

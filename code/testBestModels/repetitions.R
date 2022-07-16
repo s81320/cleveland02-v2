@@ -319,7 +319,7 @@ for(i in 1:length(test.models)){
      , nLoops=100)
 }
 
-test.case <- 5
+test.case <- 3
 res.cal <- results[[test.case]]$call ; res.cal
 res.res <- results[[test.case]]$res
 
