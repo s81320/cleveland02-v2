@@ -202,21 +202,23 @@ test_meiner_forest_2 <- function(data, metric, r , nLoops=5){
 #### first test ####
 ####################
 
-doc.t <- test_meiner_forest_2(data=data.all , metric='d0', nLoops = 2)
-doc.t <- test_meiner_forest_2(data=data.all , metric='d0', r=0.3, nLoops = 10)
-res.doc <- list(parameter=list(metric='d0'
-                               , type='Chip1_simplified'
-                               , criterion='lowest logloss on validation set')
+#doc.t <- test_meiner_forest(data=data.all , metric='d0', nLoops = 2)
+doc.t <- test_meiner_forest_2(data=data.all , metric='d1', r=0.3, nLoops = 100)
+res.doc <- list(parameter=list(metric='d1'
+                               , type='chip1_simplified'
+                               , cutoff= 0.3
+                               , selection='best')
                 , results=doc.t
                 , info=paste('training data is 50% of mixed Cleve, Hung. Code in'
                              , file_name_script)
 )
-#save(res.doc , file='data/test_02/results-meiner-d1-10**.rda') # encode the metric!
+#save(res.doc , file='data/test_02/results-chip1_simplified-d1-100.rda**') # encode the metric!
 
 doc.t <-  res.doc$results[[1]]
 
 # give options on models to test directly
 doc.t %>% apply(2,function(x) c(mean(x),sd(x)))
+
 # doc.hp 
 doc.t[doc.t$rep.parameter>0,] %>% apply(2,function(x) c(mean(x),sd(x)))
 

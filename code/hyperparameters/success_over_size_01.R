@@ -12,35 +12,44 @@ files <- list.files(folder) ; files
 file <- files[[1]] ; file
 load(paste(folder,file,sep='/'))
 et <- res$et
-#et <- et03
+#et <- et03 # when running directly after 03_hpo.R 03 hpo.R 03hpo.R
 
 
 # trade off for success and size for the regular random forest
 apply(LL[1:100,],2,mean) -> LL.m # mean values only
 par(mar=c(4,4,0,0)+0.3)
-plot(colnames(LL)[1:9] %>% as.integer 
+#smallest sizes 2 to 10
+{
+  plot(colnames(LL)[1:9] %>% as.integer 
      , LL.m[1:9] 
      , type='l'
      , xlab='size'
      , ylab='logloss'
      #, main='trade off for regular random forests'
      )
+}
 
-plot(colnames(LL)[9:18] %>% as.integer 
+# middle sizes 10 to 100
+{ 
+  plot(colnames(LL)[9:18] %>% as.integer 
      , LL.m[9:18] 
      , type='l'
      , xlab='size'
      , ylab='logloss'
      #, main='trade off for regular random forests'
      )
+}
 
-plot(colnames(LL)[18:58] %>% as.integer 
+# plot large sizes 100 to 500
+{
+  plot(colnames(LL)[18:58] %>% as.integer 
      , LL.m[18:58] 
      , type='l'
      , xlab='size'
      , ylab='logloss'
      #, main='trade off for regular random forests'
      )
+}
 
 # new methods in the context of regular random forests
 matrix(nrow=0, ncol=5) %>%
@@ -113,8 +122,8 @@ points(et2[(et2$size>3)&(et2$size<11),'size']
        , et2[(et2$size>3)&(et2$size<11),'logloss' ]
        , col=as.factor(et2[(et2$size>3)&(et2$size<11),'dissim' ]))
 legend('topright'
-      # , legend=c('regular RF, mean','Chipman, d0','Chipman, d1','Chipman, d2','Chipman, sb')
-      , legend=c('regular RF, mean','Meiner, d0','Meiner, d1','Meiner, d2','Meiner, sb')
+       , legend=c('regular RF, mean','Chipman, d0','Chipman, d1','Chipman, d2','Chipman, sb')
+      #, legend=c('regular RF, mean','Meiner, d0','Meiner, d1','Meiner, d2','Meiner, sb')
        , pch=c('-',rep('o',4))
        , col=c(1,1:4)
        , cex=0.8

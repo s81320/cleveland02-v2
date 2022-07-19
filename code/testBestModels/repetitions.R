@@ -102,6 +102,29 @@ plot(names(doc.bc)[-10]
 
 }
 
+# test Chipman 1 simplified, size 50
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip1_simplified'
+                           , metric='d0'
+                           , parameter=list('cutoff'=0.2, 'sizeSF'=50 , 'selection'='best'))
+  test.models[[2]] <- list(method='chip1_simplified'
+                           , metric='d0'
+                           , parameter=list('cutoff'=0.3, 'sizeSF'=50 , 'selection'='best'))
+  test.models[[3]] <- list(method='chip1_simplified'
+                           , metric='sb'
+                           , parameter=list('cutoff'=0.3, 'sizeSF'=50 , 'selection'='best'))
+}
+
+# test Chipman 1 simplified , size 5
+{
+  test.models <-  list()
+  test.models[[1]] <- list(method='chip1_simplified'
+                           , metric='d1'
+                           , parameter=list('cutoff'=0.3 , 'sizeSF'=5 , 'selection'='best')
+                           )
+}
+
 # test Chipman 2 for sizes of representing subforest around 50
 {
   test.models <-  list()
@@ -198,7 +221,7 @@ f1 <- function(method, metric, parameter, nLoops=100){
   #' 
   #' @param method : chip1, chip2, meiner
   #' @param metric : d0, d1, d2, sb
-  #' @param parameter list with cutoff, sizeSF (500 indicating original Chipman methods, smaller: stopped algorithms to return forests of (at most the) indicated size). chip1 needs selection method best or central
+  #' @param parameter list with cutoff, sizeSF (500 indicating original Chipman methods, smaller: stopped algorithms to return forests of (at most the) indicated size). chip1 and chip1_simplified needs selection method best or central
   #' @param nLoops number of repetitions / loops to run. default is 100.
   #' uses data.train from parent environment to built the random forest
   #' uses attribute data.set.name of data sets data.train and data.test from parent environment to document results
@@ -252,6 +275,21 @@ f1 <- function(method, metric, parameter, nLoops=100){
       , sz
       , calcLogloss(subforest(forest,cf1$forest), data.test)
       , calcLogloss(subforest(forest, 1:sz), data.test)) -> doc[i,] 
+    }
+    
+    if(method=='chip1_simplified'){
+      grow_chipForest_1_simplified(dm = dm
+                        , oLL= order(LL)
+                        #, oLL = calc_oLL(forest=forest, data=data.val)
+                        , parameter = parameter) -> cf1 
+      #print(cf1$forest)
+      
+      sz <- length(cf1$forest)
+      
+      c(calcLogloss(forest, data.test)
+        , sz
+        , calcLogloss(subforest(forest,cf1$forest), data.test)
+        , calcLogloss(subforest(forest, 1:sz), data.test)) -> doc[i,] 
     }
     
     if(method =='meiner'){
@@ -319,7 +357,9 @@ for(i in 1:length(test.models)){
      , nLoops=100)
 }
 
-test.case <- 3
+
+
+test.case <- 1
 res.cal <- results[[test.case]]$call ; res.cal
 res.res <- results[[test.case]]$res
 
@@ -332,31 +372,35 @@ apply(res.res,2,function(x) c(mean(x),sd(x))) # %>% t %>% xtable -> xt
 if(with.main){
   par(mar=c(4,4,2,1)+0.1)
 }else{
-  par(mar=c(4,4,0,1)+0.1)
+  par(mar=c(4,4,0.5,1)+0.1)
 }
   mthd <- res.cal$method
   (res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')]) %>% 
   hist(xlab='logloss overshoot of base case'
        , main=ifelse(with.main,paste('overshoot for regular small forest vs', mthd , 'forest',sep=' '),'')
-       , breaks=100)
-legend('topright',legend=c(res.cal$method, res.cal$metric , res.cal$parameter$cutoff))
+       , breaks=10
+       , cex.axis=1.3
+       , cex.lab=1.3)
+legend('topright',legend=c(res.cal$method, res.cal$metric , res.cal$parameter$cutoff), cex=1.3)
 box()
 }
 
 dip.test(res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')])
 t.test(res.res[,'logloss.base.case'] - res.res[,paste('logloss',mthd, sep='.')], alternative='greater')
 
+shapiro.test(oversh)
+
 doc.tests <-  matrix(NA, nrow=length(results), ncol=4)
 for(r in 1:length(results)){
   oversh <- results[[r]]$res[,'logloss.base.case'] - results[[r]]$res[,paste('logloss',mthd, sep='.')]
   tt <- t.test(oversh, alternative='greater')
-  doc.tests[r,] <-  c(dip.test(oversh)$p.value 
+  doc.tests[r,] <-  c(shapiro.test(oversh)$p.value 
                       , tt$p.value
                       , tt$conf.int[[1]]
                       , attr(tt$conf.int,'conf.level'))
 }
 doc.tests <-  as.data.frame(doc.tests)
-colnames(doc.tests) <-  c('dip test p-value','t-test p-value','lower bound of mean overshoot','t-test confidence level')
+colnames(doc.tests) <-  c('shapiro test p-value','t-test p-value','lower bound of mean overshoot','t-test confidence level')
 doc.tests %>% xtable -> dt.xt
 digits(dt.xt) <- c(0,4,4,4,2)
 dt.xt
@@ -365,12 +409,12 @@ dt.xt
 # I do NOT need a normal distribution for the guys I do the difference with, 
 # still, it might be interesting:
 hist(res.res[,'logloss.base.case'], breaks=10 , main='looks exponential')
-hist( res.res[,'logloss.meiner'], breaks=10, main='looks exponential')
+hist( res.res[,paste('logloss.',res.cal$method, sep='')], breaks=10, main='looks exponential')
 
 hist(res.res[,'logloss.base.case'], breaks=40, main='looks strange and multimodal')
-hist( res.res[,'logloss.meiner'], breaks=40,main='looks strange and multimodal')
+hist( res.res[,paste('logloss.',res.cal$method, sep='')], breaks=40,main='looks strange and multimodal')
 
-#save(results, file='data/testNewMethods/results-meiner-*.rda')
+save(results, file='data/testNewMethods/results-chip1_simplified-d1-size5.rda')
 #save(test.models , results , file='data/testNewMethods/***.rda ')
 
 #results[[length(results)+1]] <-  res1
