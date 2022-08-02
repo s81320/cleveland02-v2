@@ -300,8 +300,8 @@ grow_chipForest_1_simplified <-  function(dm, oLL, parameter, output=F){
                   , 'call'=list(name='grow_chipForest_1b' , 'parameter'=parameter) )
   
   if(output){
-    doc.ret$pam.sizes <- 1 # cluster sizes would be interesting to know
-    doc.ret$quality <- 2 # some kind of quality measure would be good to know
+    doc.ret$pam.sizes <- pam$clusinfo[,1] # cluster sizes
+    doc.ret$quality <- pam$silinfo # silhouette width as quality measure
   }
   
   return(doc.ret)
